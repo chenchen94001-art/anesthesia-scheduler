@@ -452,6 +452,11 @@
       notesText: "mobileScheduler.notesText.v1"
     };
 
+    const COUNTED_SLOT_TITLES = new Set([
+      "1号间", "2号间", "3号间", "4号间", "5号间", "6号间", "7号间", "8号间", "9号间", "10号间", "11号间",
+      "恢复室", "2+5", "6+7", "10+11", "胃镜室", "青龙山"
+    ]);
+
     function id(prefix) {
       return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
@@ -616,6 +621,15 @@
       return counts;
     }
 
+    function getSelectedCounts() {
+      const counts = new Map();
+      for (const slot of state.slots) {
+        if (!COUNTED_SLOT_TITLES.has(norm(slot.title))) continue;
+        for (const personId of slot.peopleIds) counts.set(personId, (counts.get(personId) || 0) + 1);
+      }
+      return counts;
+    }
+
     function personById(personId) {
       return state.people.find(person => person.id === personId);
     }
@@ -628,7 +642,7 @@
     }
 
     function renderPeople() {
-      const counts = getCounts();
+      const counts = getSelectedCounts();
       els.peopleCount.textContent = `${state.people.length}人`;
       if (!state.people.length) {
         els.peopleList.innerHTML = `<div class="hint">请先导入 Excel，或刷新表外人员。</div>`;
@@ -645,7 +659,7 @@
     }
 
     function renderSlots() {
-      const counts = getCounts();
+      const counts = getSelectedCounts();
       els.slots.innerHTML = "";
       for (const slot of state.slots) {
         const slotEl = document.createElement("div");
