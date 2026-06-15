@@ -452,9 +452,8 @@
       notesText: "mobileScheduler.notesText.v1"
     };
 
-    const COUNTED_SLOT_TITLES = new Set([
-      "1号间", "2号间", "3号间", "4号间", "5号间", "6号间", "7号间", "8号间", "9号间", "10号间", "11号间",
-      "恢复室", "2+5", "6+7", "10+11", "胃镜室", "青龙山"
+    const IGNORED_SELECTED_SLOT_TITLES = new Set([
+      "夜班", "备班", "备办", "备山", "二备", "总值班"
     ]);
 
     function id(prefix) {
@@ -624,7 +623,7 @@
     function getSelectedCounts() {
       const counts = new Map();
       for (const slot of state.slots) {
-        if (!COUNTED_SLOT_TITLES.has(norm(slot.title))) continue;
+        if (IGNORED_SELECTED_SLOT_TITLES.has(norm(slot.title))) continue;
         for (const personId of slot.peopleIds) counts.set(personId, (counts.get(personId) || 0) + 1);
       }
       return counts;
