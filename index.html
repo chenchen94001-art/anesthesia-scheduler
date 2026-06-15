@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>手机排班工具</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #fff;
+      --line: #d8dee8;
+      --text: #172033;
+      --muted: #667085;
+      --brand: #2563eb;
+      --brand-soft: #eaf1ff;
+      --bad: #b42318;
+      --bad-soft: #fff1f0;
+      --warn: #92400e;
+      --warn-soft: #fff7ed;
+      --good: #067647;
+      --good-soft: #ecfdf3;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", system-ui, sans-serif;
+      font-size: 14px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 17px;
+    }
+
+    .sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    main {
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      padding: 8px 10px 0;
+    }
+
+    .step-tab {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 6px 4px;
+      font-size: 12px;
+    }
+
+    .step-tab.active {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+      color: var(--brand);
+      font-weight: 700;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .panel[hidden] {
+      display: none;
+    }
+
+    .panel-head {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+    }
+
+    .panel-body {
+      padding: 10px;
+      display: grid;
+      gap: 9px;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    input, select, textarea, button {
+      font: inherit;
+    }
+
+    input[type="file"], select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 76px;
+      resize: vertical;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 6px;
+      padding: 7px 9px;
+      color: var(--text);
+    }
+
+    .primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+
+    .ghost {
+      border-color: transparent;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .chips {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      padding: 6px;
+      min-width: 0;
+      text-align: left;
+    }
+
+    .chip.selected {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+    }
+
+    .chip.assigned {
+      opacity: 0.55;
+    }
+
+    .name {
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .shift {
+      color: var(--muted);
+      font-size: 11px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .slots {
+      display: grid;
+      gap: 7px;
+    }
+
+    .slot {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fbfcfe;
+      overflow: hidden;
+    }
+
+    .slot-head {
+      padding: 6px 7px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .slot-title {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .slot-body {
+      padding: 7px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .assigned-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      min-height: 24px;
+    }
+
+    .assigned-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-size: 12px;
+    }
+
+    .assigned-pill button {
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--muted);
+      line-height: 1;
+    }
+
+    .slot-actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+    }
+
+    .status {
+      border: 1px solid;
+      border-radius: 7px;
+      padding: 7px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .status.good { color: var(--good); background: var(--good-soft); border-color: #abefc6; }
+    .status.warn { color: var(--warn); background: var(--warn-soft); border-color: #fed7aa; }
+    .status.bad { color: var(--bad); background: var(--bad-soft); border-color: #fecaca; }
+
+    .output {
+      min-height: 220px;
+      white-space: pre-wrap;
+      line-height: 1.55;
+    }
+
+    .sticky-actions {
+      position: sticky;
+      bottom: 0;
+      background: rgba(247, 248, 251, 0.96);
+      padding: 8px 10px 10px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .secondary-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 0 10px 10px;
+    }
+
+    .secondary-actions.single {
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 760px) {
+      main {
+        grid-template-columns: 1fr;
+        align-items: start;
+      }
+      .chips {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>手机排班工具</h1>
+    <div class="sub">不用拖拽：在每个岗位下拉选择人员，再点“选入”。</div>
+  </header>
+
+  <nav class="steps" aria-label="排班步骤">
+    <button class="step-tab active" type="button" data-step-tab="0">1 人员</button>
+    <button class="step-tab" type="button" data-step-tab="1">2 模板</button>
+    <button class="step-tab" type="button" data-step-tab="2">3 导出</button>
+  </nav>
+
+  <main>
+    <section class="panel" data-step-panel="0">
+      <div class="panel-head">
+        <span>人员</span>
+        <span class="hint" id="peopleCount">0人</span>
+      </div>
+      <div class="panel-body">
+        <div>
+          <label for="fileInput">导入 Excel</label>
+          <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
+          <div class="hint" id="fileStatus">未记忆排班表。</div>
+        </div>
+        <div>
+          <label for="dateSelect">排班日期</label>
+          <select id="dateSelect"></select>
+        </div>
+        <div>
+          <label for="outsidePeople">排班表外人员</label>
+          <textarea id="outsidePeople" placeholder="每行一个人，只记忆在这里；点刷新后加入人员池。"></textarea>
+          <button id="refreshOutside" class="primary" type="button">刷新表外人员</button>
+        </div>
+        <div class="chips" id="peopleList"></div>
+      </div>
+    </section>
+
+    <section class="panel" data-step-panel="1" hidden>
+      <div class="panel-head">
+        <span>模板</span>
+        <button id="applyTemplate" type="button">应用</button>
+      </div>
+      <div class="panel-body">
+        <textarea id="templateText">2号间
+5号间
+6号间
+7号间
+10号间
+11号间
+恢复室
+胃镜室
+青龙山
+总务
+2+5
+6+7
+10+11
+恢复室补位
+夜班
+备班
+备山
+二备</textarea>
+        <div class="slots" id="slots"></div>
+      </div>
+    </section>
+
+    <section class="panel" data-step-panel="2" hidden>
+      <div class="panel-head">
+        <span>导出</span>
+        <button id="copyText" class="primary" type="button">复制</button>
+      </div>
+      <div class="panel-body">
+        <div id="statusList"></div>
+        <div>
+          <label for="notesText">备注</label>
+          <textarea id="notesText" placeholder="备注会保存"></textarea>
+        </div>
+        <textarea id="outputText" class="output" readonly></textarea>
+      </div>
+    </section>
+  </main>
+
+  <div class="secondary-actions">
+    <button id="prevStep" type="button">返回</button>
+    <button id="nextStep" class="primary" type="button">下一步</button>
+  </div>
+
+  <div class="sticky-actions">
+    <button id="clearAssignments" type="button">清空排班</button>
+    <button id="clearAll" class="ghost" type="button">清空人员</button>
+  </div>
+
+  <script>
+    const state = {
+      matrixRows: [],
+      dateColumns: [],
+      selectedDateLabel: "",
+      specialDuty: {},
+      basePeople: [],
+      outsidePeople: [],
+      people: [],
+      slots: [],
+      selectedPersonId: ""
+    };
+
+    const els = {
+      fileInput: document.querySelector("#fileInput"),
+      fileStatus: document.querySelector("#fileStatus"),
+      dateSelect: document.querySelector("#dateSelect"),
+      outsidePeople: document.querySelector("#outsidePeople"),
+      refreshOutside: document.querySelector("#refreshOutside"),
+      peopleList: document.querySelector("#peopleList"),
+      peopleCount: document.querySelector("#peopleCount"),
+      templateText: document.querySelector("#templateText"),
+      applyTemplate: document.querySelector("#applyTemplate"),
+      slots: document.querySelector("#slots"),
+      statusList: document.querySelector("#statusList"),
+      notesText: document.querySelector("#notesText"),
+      outputText: document.querySelector("#outputText"),
+      copyText: document.querySelector("#copyText"),
+      prevStep: document.querySelector("#prevStep"),
+      nextStep: document.querySelector("#nextStep"),
+      clearAssignments: document.querySelector("#clearAssignments"),
+      clearAll: document.querySelector("#clearAll")
+    };
+
+    let currentStep = 0;
+
+    const keys = {
+      scheduleMatrix: "mobileScheduler.scheduleMatrix.v1",
+      scheduleFileName: "mobileScheduler.scheduleFileName.v1",
+      selectedDateColumn: "mobileScheduler.selectedDateColumn.v1",
+      outsideText: "mobileScheduler.outsideText.v1",
+      templateText: "mobileScheduler.templateText.v1",
+      notesText: "mobileScheduler.notesText.v1"
+    };
+
+    function id(prefix) {
+      return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function norm(value) {
+      return String(value ?? "").trim();
+    }
+
+    function parsePeopleText(text) {
+      return text.split(/\r?\n/)
+        .map(norm)
+        .filter(Boolean)
+        .map(line => {
+          const parts = line.split(/\s+/);
+          return { id: id("p"), name: parts.shift() || "", shift: parts.join(" "), outside: true };
+        })
+        .filter(person => person.name);
+    }
+
+    function setupSchedule(matrixRows, preferredCol = "") {
+      state.matrixRows = matrixRows;
+      state.dateColumns = [];
+      const dateRowIndex = matrixRows.findIndex(row => row.filter(value => Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 31).length >= 5);
+      if (dateRowIndex < 0) return false;
+      const dateRow = matrixRows[dateRowIndex];
+      const monthText = norm(dateRow[0]) || "本月";
+      state.dateColumns = dateRow.map((value, colIndex) => ({ value, colIndex }))
+        .filter(item => item.colIndex > 0 && Number.isInteger(Number(item.value)) && Number(item.value) >= 1 && Number(item.value) <= 31)
+        .map(item => ({ colIndex: item.colIndex, day: Number(item.value), label: `${monthText}${Number(item.value)}日`, dateRowIndex }));
+      els.dateSelect.innerHTML = state.dateColumns.map(item => `<option value="${item.colIndex}">${escapeHtml(item.label)}</option>`).join("");
+      const preferred = state.dateColumns.find(item => String(item.colIndex) === String(preferredCol));
+      const today = state.dateColumns.find(item => item.day === new Date().getDate());
+      if (preferred) els.dateSelect.value = preferred.colIndex;
+      else if (today) els.dateSelect.value = today.colIndex;
+      rebuildPeopleFromDate();
+      return true;
+    }
+
+    function rebuildPeopleFromDate() {
+      state.basePeople = [];
+      state.specialDuty = {};
+      const selectedCol = Number(els.dateSelect.value || state.dateColumns[0]?.colIndex || 0);
+      const selectedDate = state.dateColumns.find(item => item.colIndex === selectedCol);
+      if (!selectedDate) {
+        combinePeople();
+        render();
+        return;
+      }
+      state.selectedDateLabel = selectedDate.label;
+      const startRow = selectedDate.dateRowIndex + 2;
+      for (let r = startRow; r < state.matrixRows.length; r++) {
+        const row = state.matrixRows[r] || [];
+        const name = norm(row[0]);
+        const shift = norm(row[selectedCol]);
+        if (!name || !shift) continue;
+        if (["总值班", "二线班"].includes(name)) {
+          state.specialDuty[name] = shift;
+          continue;
+        }
+        state.basePeople.push({ id: id("p"), name, shift });
+      }
+      combinePeople();
+      removeMissingAssignments();
+      autoAssign();
+      render();
+    }
+
+    function combinePeople() {
+      const seen = new Set();
+      state.people = [];
+      for (const person of [...state.basePeople, ...state.outsidePeople]) {
+        const key = `${person.name}__${person.shift}`;
+        if (seen.has(key)) continue;
+        state.people.push({ ...person, id: id("p") });
+        seen.add(key);
+      }
+    }
+
+    function saveSchedule(matrixRows, fileName) {
+      localStorage.setItem(keys.scheduleMatrix, JSON.stringify(matrixRows));
+      localStorage.setItem(keys.scheduleFileName, fileName);
+      updateFileStatus();
+    }
+
+    function loadSchedule() {
+      try {
+        const text = localStorage.getItem(keys.scheduleMatrix);
+        if (!text) return false;
+        return setupSchedule(JSON.parse(text), localStorage.getItem(keys.selectedDateColumn) || "");
+      } catch {
+        return false;
+      }
+    }
+
+    function updateFileStatus() {
+      const fileName = localStorage.getItem(keys.scheduleFileName);
+      els.fileStatus.textContent = fileName ? `已记忆：${fileName}` : "未记忆排班表。";
+    }
+
+    function applyTemplate() {
+      const names = els.templateText.value.split(/\r?\n/).map(norm).filter(Boolean);
+      state.slots = names.map(title => ({ id: id("s"), title, peopleIds: [] }));
+      localStorage.setItem(keys.templateText, els.templateText.value);
+      autoAssign();
+      render();
+    }
+
+    function autoAssign() {
+      for (const slot of state.slots) {
+        if (["夜班", "备班", "备山", "二备"].includes(slot.title)) slot.peopleIds = [];
+      }
+      for (const person of state.people) {
+        const title = autoSlotTitle(person.shift);
+        if (!title) continue;
+        const slot = state.slots.find(item => item.title === title);
+        if (slot && !slot.peopleIds.includes(person.id)) slot.peopleIds.push(person.id);
+      }
+    }
+
+    function autoSlotTitle(shift) {
+      const value = norm(shift).replace(/\s/g, "");
+      if (!value || value.includes("夜休")) return "";
+      if (value === "夜" || value.includes("夜班")) return "夜班";
+      if (value.includes("备山")) return "备山";
+      if (value.includes("二备")) return "二备";
+      if (value.includes("备")) return "备班";
+      return "";
+    }
+
+    function assignToSlot(slotId, personId = state.selectedPersonId) {
+      const slot = state.slots.find(item => item.id === slotId);
+      if (!slot || !personId) return;
+      slot.peopleIds.push(personId);
+      state.selectedPersonId = "";
+      render();
+    }
+
+    function removeAssignment(slotId, personId, index) {
+      const slot = state.slots.find(item => item.id === slotId);
+      if (!slot) return;
+      let seen = -1;
+      const found = slot.peopleIds.findIndex(idValue => {
+        if (idValue !== personId) return false;
+        seen += 1;
+        return seen === index;
+      });
+      if (found >= 0) slot.peopleIds.splice(found, 1);
+      render();
+    }
+
+    function removeMissingAssignments() {
+      const valid = new Set(state.people.map(person => person.id));
+      for (const slot of state.slots) slot.peopleIds = slot.peopleIds.filter(personId => valid.has(personId));
+    }
+
+    function getCounts(ignoreSpecial = false) {
+      const counts = new Map();
+      for (const slot of state.slots) {
+        if (ignoreSpecial && ["夜班", "备班", "备办", "备山", "二备"].includes(slot.title)) continue;
+        for (const personId of slot.peopleIds) counts.set(personId, (counts.get(personId) || 0) + 1);
+      }
+      return counts;
+    }
+
+    function personById(personId) {
+      return state.people.find(person => person.id === personId);
+    }
+
+    function renderPeople() {
+      const counts = getCounts();
+      els.peopleCount.textContent = `${state.people.length}人`;
+      if (!state.people.length) {
+        els.peopleList.innerHTML = `<div class="hint">请先导入 Excel，或刷新表外人员。</div>`;
+        return;
+      }
+      els.peopleList.innerHTML = "";
+      for (const person of state.people) {
+        const chip = document.createElement("button");
+        chip.className = `chip ${counts.has(person.id) ? "assigned" : ""}`;
+        chip.type = "button";
+        chip.innerHTML = `<div class="name">${escapeHtml(person.name)}</div><div class="shift">${escapeHtml(person.shift || "未备注")}</div>`;
+        els.peopleList.appendChild(chip);
+      }
+    }
+
+    function renderSlots() {
+      els.slots.innerHTML = "";
+      for (const slot of state.slots) {
+        const slotEl = document.createElement("div");
+        slotEl.className = "slot";
+        const selectedOptions = state.people.map(person => `<option value="${person.id}">${escapeHtml(person.name)} ${escapeHtml(person.shift || "")}</option>`).join("");
+        slotEl.innerHTML = `
+          <div class="slot-head">
+            <div class="slot-title">${escapeHtml(slot.title)}</div>
+            <span class="hint">${slot.peopleIds.length}人</span>
+          </div>
+          <div class="slot-body">
+            <div class="assigned-list"></div>
+            <div class="slot-actions">
+              <select data-select="${slot.id}"><option value="">从人员池选择</option>${selectedOptions}</select>
+              <button type="button" data-pick="${slot.id}">选入</button>
+            </div>
+          </div>
+        `;
+        const list = slotEl.querySelector(".assigned-list");
+        slot.peopleIds.forEach((personId, index) => {
+          const person = personById(personId);
+          if (!person) return;
+          const pill = document.createElement("span");
+          pill.className = "assigned-pill";
+          pill.innerHTML = `${escapeHtml(person.name)} <button type="button">×</button>`;
+          pill.querySelector("button").addEventListener("click", () => removeAssignment(slot.id, personId, index));
+          list.appendChild(pill);
+        });
+        slotEl.querySelector(`[data-pick="${slot.id}"]`).addEventListener("click", () => {
+          const select = slotEl.querySelector(`[data-select="${slot.id}"]`);
+          assignToSlot(slot.id, select.value);
+          select.value = "";
+        });
+        els.slots.appendChild(slotEl);
+      }
+    }
+
+    function renderStatus() {
+      const counts = getCounts();
+      const duplicateCounts = getCounts(true);
+      const missing = state.people.filter(person => !counts.has(person.id));
+      const duplicates = state.people.filter(person => (duplicateCounts.get(person.id) || 0) > 1);
+      const statuses = [];
+      if (!state.people.length) statuses.push({ type: "warn", text: "还没有人员。" });
+      else if (!missing.length && !duplicates.length) statuses.push({ type: "good", text: "没有遗漏，也没有普通岗位重复。" });
+      if (missing.length) statuses.push({ type: "warn", text: `遗漏 ${missing.length} 人：${missing.map(p => p.name).join("、")}` });
+      if (duplicates.length) statuses.push({ type: "bad", text: `重复 ${duplicates.length} 人：${duplicates.map(p => p.name).join("、")}` });
+      els.statusList.innerHTML = statuses.map(item => `<div class="status ${item.type}">${escapeHtml(item.text)}</div>`).join("");
+    }
+
+    function outputLine(title, names) {
+      const text = names.length ? names.join(title.includes("青龙山") || title.includes("胃镜") ? " " : "、") : "未安排";
+      if (/^\d+\+\d+$/.test(title) || ["夜班", "备班", "备山", "二备"].includes(title)) return `${title}：${text}`;
+      return `${title}: ${text}`;
+    }
+
+    function formatName(person, title) {
+      return `${/号间|胃镜|青龙山/.test(title) ? "@" : ""}${person.name}`;
+    }
+
+    function generateOutput() {
+      const lines = [];
+      if (state.selectedDateLabel) lines.push(`${state.selectedDateLabel}排班:`);
+      for (const slot of state.slots) {
+        const names = slot.peopleIds.map(personById).filter(Boolean).map(person => formatName(person, slot.title));
+        lines.push(outputLine(slot.title, names));
+      }
+      const total = state.specialDuty["总值班"];
+      const second = state.specialDuty["二线班"];
+      if (total || second) lines.push(`总值班、二线班：${total && second && total === second ? total : [total, second].filter(Boolean).join("、")}`);
+      const notes = norm(els.notesText.value);
+      if (notes) lines.push("备注:", notes);
+      lines.push("总值班随时进行人员协调!");
+      els.outputText.value = lines.join("\n");
+    }
+
+    function render() {
+      renderPeople();
+      renderSlots();
+      renderStatus();
+      generateOutput();
+      renderStep();
+    }
+
+    function renderStep() {
+      document.querySelectorAll("[data-step-panel]").forEach(panel => {
+        panel.hidden = Number(panel.dataset.stepPanel) !== currentStep;
+      });
+      document.querySelectorAll("[data-step-tab]").forEach(tab => {
+        tab.classList.toggle("active", Number(tab.dataset.stepTab) === currentStep);
+      });
+      els.prevStep.hidden = currentStep === 0;
+      els.nextStep.hidden = currentStep === 2;
+      els.nextStep.textContent = "下一步";
+      document.querySelector(".secondary-actions").classList.toggle("single", currentStep === 0 || currentStep === 2);
+    }
+
+    function goStep(step) {
+      currentStep = Math.max(0, Math.min(2, step));
+      renderStep();
+    }
+
+    function escapeHtml(value) {
+      return norm(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+    }
+
+    function parseWorkbook(file) {
+      const reader = new FileReader();
+      reader.onload = event => {
+        try {
+          const workbook = XLSX.read(new Uint8Array(event.target.result), { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const matrixRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+          if (!setupSchedule(matrixRows)) {
+            alert("没有识别到横向日期排班表。");
+            return;
+          }
+          saveSchedule(matrixRows, file.name);
+          localStorage.setItem(keys.selectedDateColumn, els.dateSelect.value || "");
+        } catch (error) {
+          alert(`导入失败：${error.message}`);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    els.fileInput.addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (file) parseWorkbook(file);
+    });
+
+    els.dateSelect.addEventListener("change", () => {
+      localStorage.setItem(keys.selectedDateColumn, els.dateSelect.value || "");
+      rebuildPeopleFromDate();
+    });
+
+    els.outsidePeople.addEventListener("input", () => {
+      localStorage.setItem(keys.outsideText, els.outsidePeople.value);
+    });
+
+    els.refreshOutside.addEventListener("click", () => {
+      state.outsidePeople = parsePeopleText(els.outsidePeople.value);
+      combinePeople();
+      removeMissingAssignments();
+      autoAssign();
+      render();
+    });
+
+    els.applyTemplate.addEventListener("click", applyTemplate);
+    els.templateText.addEventListener("input", () => localStorage.setItem(keys.templateText, els.templateText.value));
+    els.notesText.addEventListener("input", () => {
+      localStorage.setItem(keys.notesText, els.notesText.value);
+      generateOutput();
+    });
+    els.clearAssignments.addEventListener("click", () => {
+      for (const slot of state.slots) slot.peopleIds = [];
+      autoAssign();
+      render();
+    });
+    els.clearAll.addEventListener("click", () => {
+      state.people = [];
+      state.basePeople = [];
+      state.outsidePeople = [];
+      state.matrixRows = [];
+      state.dateColumns = [];
+      state.specialDuty = {};
+      state.selectedDateLabel = "";
+      state.selectedPersonId = "";
+      els.dateSelect.innerHTML = "";
+      localStorage.removeItem(keys.scheduleMatrix);
+      localStorage.removeItem(keys.scheduleFileName);
+      localStorage.removeItem(keys.selectedDateColumn);
+      updateFileStatus();
+      render();
+    });
+    els.copyText.addEventListener("click", async () => {
+      generateOutput();
+      try {
+        await navigator.clipboard.writeText(els.outputText.value);
+        els.copyText.textContent = "已复制";
+        setTimeout(() => els.copyText.textContent = "复制", 1200);
+      } catch {
+        els.outputText.select();
+        document.execCommand("copy");
+      }
+    });
+    els.prevStep.addEventListener("click", () => goStep(currentStep - 1));
+    els.nextStep.addEventListener("click", () => goStep(currentStep === 2 ? 0 : currentStep + 1));
+    document.querySelectorAll("[data-step-tab]").forEach(tab => {
+      tab.addEventListener("click", () => goStep(Number(tab.dataset.stepTab)));
+    });
+
+    const savedTemplate = localStorage.getItem(keys.templateText);
+    const savedNotes = localStorage.getItem(keys.notesText);
+    const savedOutside = localStorage.getItem(keys.outsideText);
+    if (savedTemplate !== null) els.templateText.value = savedTemplate;
+    if (savedNotes !== null) els.notesText.value = savedNotes;
+    if (savedOutside !== null) els.outsidePeople.value = savedOutside;
+    state.outsidePeople = [];
+    applyTemplate();
+    loadSchedule();
+    updateFileStatus();
+    render();
+  </script>
+</body>
+</html>
