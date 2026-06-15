@@ -359,7 +359,8 @@
         <button id="applyTemplate" type="button">应用</button>
       </div>
       <div class="panel-body">
-        <textarea id="templateText">2号间
+        <textarea id="templateText">1号间
+2号间
 5号间
 6号间
 7号间
@@ -555,7 +556,14 @@
       els.fileStatus.textContent = fileName ? `已记忆：${fileName}` : "未记忆排班表。";
     }
 
+    function normalizeTemplateText(text) {
+      const names = text.split(/\r?\n/).map(norm).filter(Boolean);
+      if (!names.includes("1号间")) names.unshift("1号间");
+      return names.join("\n");
+    }
+
     function applyTemplate() {
+      els.templateText.value = normalizeTemplateText(els.templateText.value);
       const names = els.templateText.value.split(/\r?\n/).map(norm).filter(Boolean);
       state.slots = names.map(title => ({ id: id("s"), title, peopleIds: [] }));
       localStorage.setItem(keys.templateText, els.templateText.value);
@@ -854,7 +862,7 @@
     const savedTemplate = localStorage.getItem(keys.templateText);
     const savedNotes = localStorage.getItem(keys.notesText);
     const savedOutside = localStorage.getItem(keys.outsideText);
-    if (savedTemplate !== null) els.templateText.value = savedTemplate;
+    if (savedTemplate !== null) els.templateText.value = normalizeTemplateText(savedTemplate);
     if (savedNotes !== null) els.notesText.value = savedNotes;
     if (savedOutside !== null) els.outsidePeople.value = savedOutside;
     state.outsidePeople = [];
