@@ -491,7 +491,12 @@
     ]);
 
     const AUTO_ASSIGN_SLOT_TITLES = new Set([
-      "夜班", "备班", "备山", "二备", "胃镜室", "青龙山"
+      "夜班", "备班", "备山", "二备", "胃镜室", "青龙山", "总务", "机动"
+    ]);
+
+    const AUTO_ASSIGN_NAME_TO_SLOT = new Map([
+      ["冷蔚蔚", "总务"],
+      ["李玥豪", "机动"]
     ]);
 
     function id(prefix) {
@@ -622,15 +627,17 @@
         if (AUTO_ASSIGN_SLOT_TITLES.has(norm(slot.title))) slot.peopleIds = [];
       }
       for (const person of state.people) {
-        const title = autoSlotTitle(person.shift);
+        const title = autoSlotTitle(person);
         if (!title) continue;
         const slot = state.slots.find(item => item.title === title);
         if (slot && !slot.peopleIds.includes(person.id)) slot.peopleIds.push(person.id);
       }
     }
 
-    function autoSlotTitle(shift) {
-      const value = norm(shift).replace(/\s/g, "");
+    function autoSlotTitle(person) {
+      const fixedSlot = AUTO_ASSIGN_NAME_TO_SLOT.get(norm(person.name));
+      if (fixedSlot) return fixedSlot;
+      const value = norm(person.shift).replace(/\s/g, "");
       if (!value || value.includes("夜休")) return "";
       if (value === "夜" || value.includes("夜班")) return "夜班";
       if (value.includes("备山")) return "备山";
