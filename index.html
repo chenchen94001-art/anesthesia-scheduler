@@ -763,10 +763,15 @@
       }
     }
 
+    function isMissingExempt(person) {
+      const shift = norm(person.shift).replace(/\s/g, "");
+      return shift.includes("下夜");
+    }
+
     function renderStatus() {
       const counts = getCounts();
       const duplicateCounts = getCounts(true);
-      const missing = state.people.filter(person => !counts.has(person.id));
+      const missing = state.people.filter(person => !counts.has(person.id) && !isMissingExempt(person));
       const duplicates = state.people.filter(person => (duplicateCounts.get(person.id) || 0) > 1);
       const statuses = [];
       if (!state.people.length) statuses.push({ type: "warn", text: "还没有人员。" });
