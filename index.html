@@ -490,6 +490,10 @@
       "夜班", "备班", "备办", "备山", "二备", "总值班", "总值班/二线班"
     ]);
 
+    const AUTO_ASSIGN_SLOT_TITLES = new Set([
+      "夜班", "备班", "备山", "二备", "胃镜室", "青龙山"
+    ]);
+
     function id(prefix) {
       return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
@@ -615,7 +619,7 @@
 
     function autoAssign() {
       for (const slot of state.slots) {
-        if (["夜班", "备班", "备山", "二备"].includes(slot.title)) slot.peopleIds = [];
+        if (AUTO_ASSIGN_SLOT_TITLES.has(norm(slot.title))) slot.peopleIds = [];
       }
       for (const person of state.people) {
         const title = autoSlotTitle(person.shift);
