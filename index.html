@@ -375,14 +375,16 @@
 胃镜室
 青龙山
 总务
+机动
 2+5
 6+7
 10+11
-恢复室补位
+恢复室
 夜班
 备班
 备山
-二备</textarea>
+二备
+总值班/二线班</textarea>
         <div class="template-actions">
           <button id="clearTemplateAssignments" type="button">清空</button>
         </div>
@@ -462,8 +464,30 @@
       notesText: "mobileScheduler.notesText.v1"
     };
 
+    const DEFAULT_TEMPLATE_TEXT = [
+      "1号间", "2号间", "5号间", "6号间", "7号间", "10号间", "11号间",
+      "恢复室", "胃镜室", "青龙山", "总务", "机动",
+      "2+5", "6+7", "10+11", "恢复室",
+      "夜班", "备班", "备山", "二备", "总值班/二线班"
+    ].join("\n");
+
+    const LEGACY_TEMPLATE_TEXTS = new Set([
+      [
+        "2号间", "5号间", "6号间", "7号间", "10号间", "11号间",
+        "恢复室", "胃镜室", "青龙山", "总务",
+        "2+5", "6+7", "10+11", "恢复室补位",
+        "夜班", "备班", "备山", "二备"
+      ].join("\n"),
+      [
+        "1号间", "2号间", "5号间", "6号间", "7号间", "10号间", "11号间",
+        "恢复室", "胃镜室", "青龙山", "总务",
+        "2+5", "6+7", "10+11", "恢复室补位",
+        "夜班", "备班", "备山", "二备"
+      ].join("\n")
+    ]);
+
     const IGNORED_SELECTED_SLOT_TITLES = new Set([
-      "夜班", "备班", "备办", "备山", "二备", "总值班"
+      "夜班", "备班", "备办", "备山", "二备", "总值班", "总值班/二线班"
     ]);
 
     function id(prefix) {
@@ -567,8 +591,7 @@
 
     function normalizeTemplateText(text) {
       const names = text.split(/\r?\n/).map(norm).filter(Boolean);
-      if (!names.includes("1号间")) names.unshift("1号间");
-      return names.join("\n");
+      return names.length ? names.join("\n") : DEFAULT_TEMPLATE_TEXT;
     }
 
     function applyTemplate() {
@@ -884,7 +907,12 @@
     const savedTemplate = localStorage.getItem(keys.templateText);
     const savedNotes = localStorage.getItem(keys.notesText);
     const savedOutside = localStorage.getItem(keys.outsideText);
-    if (savedTemplate !== null) els.templateText.value = normalizeTemplateText(savedTemplate);
+    if (savedTemplate !== null) {
+      const normalizedTemplate = normalizeTemplateText(savedTemplate);
+      els.templateText.value = LEGACY_TEMPLATE_TEXTS.has(normalizedTemplate) ? DEFAULT_TEMPLATE_TEXT : normalizedTemplate;
+    } else {
+      els.templateText.value = DEFAULT_TEMPLATE_TEXT;
+    }
     if (savedNotes !== null) els.notesText.value = savedNotes;
     if (savedOutside !== null) els.outsidePeople.value = savedOutside;
     state.outsidePeople = [];
