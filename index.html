@@ -620,6 +620,13 @@
       return state.people.find(person => person.id === personId);
     }
 
+    function formatPersonOptionLabel(person, counts) {
+      const assignedCount = counts.get(person.id) || 0;
+      const suffix = assignedCount > 0 ? (assignedCount > 1 ? `（已选${assignedCount}次）` : "（已选）") : "";
+      const base = [person.name, person.shift || ""].filter(Boolean).join(" ");
+      return `${base}${suffix}`;
+    }
+
     function renderPeople() {
       const counts = getCounts();
       els.peopleCount.textContent = `${state.people.length}人`;
@@ -638,11 +645,12 @@
     }
 
     function renderSlots() {
+      const counts = getCounts();
       els.slots.innerHTML = "";
       for (const slot of state.slots) {
         const slotEl = document.createElement("div");
         slotEl.className = "slot";
-        const selectedOptions = state.people.map(person => `<option value="${person.id}">${escapeHtml(person.name)} ${escapeHtml(person.shift || "")}</option>`).join("");
+        const selectedOptions = state.people.map(person => `<option value="${person.id}">${escapeHtml(formatPersonOptionLabel(person, counts))}</option>`).join("");
         slotEl.innerHTML = `
           <div class="slot-head">
             <div class="slot-title">${escapeHtml(slot.title)}</div>
