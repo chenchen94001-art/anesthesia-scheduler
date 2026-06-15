@@ -205,6 +205,11 @@
       gap: 7px;
     }
 
+    .template-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
     .slot {
       border: 1px solid var(--line);
       border-radius: 7px;
@@ -378,6 +383,9 @@
 备班
 备山
 二备</textarea>
+        <div class="template-actions">
+          <button id="clearTemplateAssignments" type="button">清空</button>
+        </div>
         <div class="slots" id="slots"></div>
       </div>
     </section>
@@ -431,6 +439,7 @@
       peopleCount: document.querySelector("#peopleCount"),
       templateText: document.querySelector("#templateText"),
       applyTemplate: document.querySelector("#applyTemplate"),
+      clearTemplateAssignments: document.querySelector("#clearTemplateAssignments"),
       slots: document.querySelector("#slots"),
       statusList: document.querySelector("#statusList"),
       notesText: document.querySelector("#notesText"),
@@ -565,7 +574,17 @@
     function applyTemplate() {
       els.templateText.value = normalizeTemplateText(els.templateText.value);
       const names = els.templateText.value.split(/\r?\n/).map(norm).filter(Boolean);
-      state.slots = names.map(title => ({ id: id("s"), title, peopleIds: [] }));
+      const previousAssignments = new Map();
+      for (const slot of state.slots) {
+        const title = norm(slot.title);
+        if (!previousAssignments.has(title)) previousAssignments.set(title, []);
+        previousAssignments.get(title).push([...slot.peopleIds]);
+      }
+      state.slots = names.map(title => ({
+        id: id("s"),
+        title,
+        peopleIds: previousAssignments.get(title)?.shift() || []
+      }));
       localStorage.setItem(keys.templateText, els.templateText.value);
       autoAssign();
       render();
@@ -773,6 +792,12 @@
       return norm(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
     }
 
+    function clearSlotAssignments() {
+      for (const slot of state.slots) slot.peopleIds = [];
+      autoAssign();
+      render();
+    }
+
     function parseWorkbook(file) {
       const reader = new FileReader();
       reader.onload = event => {
@@ -816,16 +841,13 @@
     });
 
     els.applyTemplate.addEventListener("click", applyTemplate);
+    els.clearTemplateAssignments.addEventListener("click", clearSlotAssignments);
     els.templateText.addEventListener("input", () => localStorage.setItem(keys.templateText, els.templateText.value));
     els.notesText.addEventListener("input", () => {
       localStorage.setItem(keys.notesText, els.notesText.value);
       generateOutput();
     });
-    els.clearAssignments.addEventListener("click", () => {
-      for (const slot of state.slots) slot.peopleIds = [];
-      autoAssign();
-      render();
-    });
+    els.clearAssignments.addEventListener("click", clearSlotAssignments);
     els.clearAll.addEventListener("click", () => {
       state.people = [];
       state.basePeople = [];
