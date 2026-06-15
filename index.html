@@ -631,6 +631,10 @@
         if (!title) continue;
         const slot = state.slots.find(item => item.title === title);
         if (slot && !slot.peopleIds.includes(person.id)) slot.peopleIds.push(person.id);
+        if (title === "备山") {
+          const mountainSlot = state.slots.find(item => item.title === "青龙山");
+          if (mountainSlot && !mountainSlot.peopleIds.includes(person.id)) mountainSlot.peopleIds.push(person.id);
+        }
       }
     }
 
