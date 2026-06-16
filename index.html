@@ -206,6 +206,20 @@
       line-height: 1;
     }
 
+    .chip-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .assigned-mark {
+      color: #f4b400;
+      font-size: 14px;
+      line-height: 1;
+      flex: 0 0 auto;
+    }
+
     .name {
       font-weight: 700;
       white-space: nowrap;
@@ -230,6 +244,21 @@
     .template-actions {
       display: flex;
       justify-content: flex-end;
+    }
+
+    .undo-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1px solid #f2d675;
+      background: #fff8d9;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+
+    .undo-bar[hidden] {
+      display: none;
     }
 
     .slot {
@@ -377,6 +406,10 @@
           <button id="refreshOutside" class="primary" type="button">刷新表外人员</button>
         </div>
         <div class="chips" id="peopleList"></div>
+        <div class="undo-bar" id="undoBar" hidden>
+          <span class="hint" id="undoText"></span>
+          <button id="undoRemove" type="button">撤回</button>
+        </div>
       </div>
     </section>
 
@@ -450,7 +483,9 @@
       outsidePeople: [],
       people: [],
       slots: [],
-      selectedPersonId: ""
+      selectedPersonId: "",
+      hiddenPeopleKeys: [],
+      lastRemovedPerson: null
     };
 
     const els = {
@@ -461,6 +496,9 @@
       refreshOutside: document.querySelector("#refreshOutside"),
       peopleList: document.querySelector("#peopleList"),
       peopleCount: document.querySelector("#peopleCount"),
+      undoBar: document.querySelector("#undoBar"),
+      undoText: document.querySelector("#undoText"),
+      undoRemove: document.querySelector("#undoRemove"),
       templateText: document.querySelector("#templateText"),
       applyTemplate: document.querySelector("#applyTemplate"),
       clearTemplateAssignments: document.querySelector("#clearTemplateAssignments"),
@@ -525,6 +563,14 @@
       return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
 
+    function personKey(person) {
+      return `${norm(person?.name)}__${norm(person?.shift)}`;
+    }
+
+    function isHiddenPerson(person) {
+      return state.hiddenPeopleKeys.includes(personKey(person));
+    }
+
     function norm(value) {
       return String(value ?? "").trim();
     }
@@ -538,6 +584,20 @@
           return { id: id("p"), name: parts.shift() || "", shift: parts.join(" "), outside: true };
         })
         .filter(person => person.name);
+    }
+
+    function matrixFromSheet(sheet) {
+      const matrixRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      for (const merge of sheet["!merges"] || []) {
+        const topLeft = matrixRows[merge.s.r]?.[merge.s.c] ?? "";
+        for (let r = merge.s.r; r <= merge.e.r; r += 1) {
+          if (!matrixRows[r]) matrixRows[r] = [];
+          for (let c = merge.s.c; c <= merge.e.c; c += 1) {
+            matrixRows[r][c] = topLeft;
+          }
+        }
+      }
+      return matrixRows;
     }
 
     function setupSchedule(matrixRows, preferredCol = "") {
@@ -575,7 +635,7 @@
         const row = state.matrixRows[r] || [];
         const name = norm(row[0]);
         const shift = norm(row[selectedCol]);
-        if (!name || !shift) continue;
+        if (!name) continue;
         if (["总值班", "二线班"].includes(name)) {
           state.specialDuty[name] = shift;
           continue;
@@ -593,7 +653,7 @@
       state.people = [];
       for (const person of [...state.basePeople, ...state.outsidePeople]) {
         const key = `${person.name}__${person.shift}`;
-        if (seen.has(key)) continue;
+        if (seen.has(key) || isHiddenPerson(person)) continue;
         state.people.push({ ...person, id: id("p"), source: person.source || "base" });
         seen.add(key);
       }
@@ -698,19 +758,51 @@
     function removePerson(personId) {
       const person = personById(personId);
       if (!person) return;
+      const assignments = state.slots
+        .map(slot => ({
+          slotId: slot.id,
+          indexes: slot.peopleIds.map((idValue, indexValue) => idValue === personId ? indexValue : -1).filter(indexValue => indexValue >= 0)
+        }))
+        .filter(item => item.indexes.length);
+      const key = personKey(person);
+      if (!state.hiddenPeopleKeys.includes(key)) {
+        state.hiddenPeopleKeys.push(key);
+      }
+      state.lastRemovedPerson = { person: { ...person }, assignments };
       state.people = state.people.filter(item => item.id !== personId);
       for (const slot of state.slots) {
         slot.peopleIds = slot.peopleIds.filter(idValue => idValue !== personId);
       }
-      if (person.source === "base") {
-        state.basePeople = state.basePeople.filter(item => !(item.name === person.name && item.shift === person.shift));
-      }
-      if (person.source === "outside") {
-        state.outsidePeople = state.outsidePeople.filter(item => !(item.name === person.name && item.shift === person.shift));
-        els.outsidePeople.value = state.outsidePeople.map(item => [item.name, item.shift || ""].filter(Boolean).join(" ")).join("\n");
-        localStorage.setItem(keys.outsideText, els.outsidePeople.value);
-      }
       render();
+    }
+
+    function restoreRemovedPerson() {
+      const snapshot = state.lastRemovedPerson;
+      if (!snapshot) return;
+      state.hiddenPeopleKeys = state.hiddenPeopleKeys.filter(key => key !== personKey(snapshot.person));
+      if (!state.people.some(item => item.id === snapshot.person.id)) {
+        state.people.push({ ...snapshot.person });
+      }
+      for (const entry of snapshot.assignments) {
+        const slot = state.slots.find(item => item.id === entry.slotId);
+        if (!slot) continue;
+        for (const indexValue of entry.indexes) {
+          const insertAt = Math.max(0, Math.min(indexValue, slot.peopleIds.length));
+          slot.peopleIds.splice(insertAt, 0, snapshot.person.id);
+        }
+      }
+      state.lastRemovedPerson = null;
+      render();
+    }
+
+    function renderUndo() {
+      if (!state.lastRemovedPerson) {
+        els.undoBar.hidden = true;
+        els.undoText.textContent = "";
+        return;
+      }
+      els.undoBar.hidden = false;
+      els.undoText.textContent = `已移除 ${state.lastRemovedPerson.person.name}`;
     }
 
     function removeMissingAssignments() {
@@ -761,7 +853,7 @@
         const chip = document.createElement("div");
         chip.className = `chip ${counts.has(person.id) ? "assigned" : ""}`;
         chip.classList.add("chip-main");
-        chip.innerHTML = `<div class="name">${escapeHtml(person.name)}</div><div class="shift">${escapeHtml(person.shift || "未备注")}</div>`;
+        chip.innerHTML = `<div class="chip-head"><div class="name">${escapeHtml(person.name)}</div>${counts.has(person.id) ? '<span class="assigned-mark">★</span>' : ""}</div><div class="shift">${escapeHtml(person.shift || "未备注")}</div>`;
         const removeButton = document.createElement("button");
         removeButton.type = "button";
         removeButton.className = "chip-remove";
@@ -859,6 +951,7 @@
 
     function render() {
       renderPeople();
+      renderUndo();
       renderSlots();
       renderStatus();
       generateOutput();
@@ -899,7 +992,7 @@
         try {
           const workbook = XLSX.read(new Uint8Array(event.target.result), { type: "array" });
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const matrixRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+          const matrixRows = matrixFromSheet(sheet);
           if (!setupSchedule(matrixRows)) {
             alert("没有识别到横向日期排班表。");
             return;
@@ -936,6 +1029,7 @@
     });
 
     els.applyTemplate.addEventListener("click", applyTemplate);
+    els.undoRemove.addEventListener("click", restoreRemovedPerson);
     els.clearTemplateAssignments.addEventListener("click", clearSlotAssignments);
     els.templateText.addEventListener("input", () => localStorage.setItem(keys.templateText, els.templateText.value));
     els.notesText.addEventListener("input", () => {
@@ -952,6 +1046,8 @@
       state.specialDuty = {};
       state.selectedDateLabel = "";
       state.selectedPersonId = "";
+      state.hiddenPeopleKeys = [];
+      state.lastRemovedPerson = null;
       els.dateSelect.innerHTML = "";
       localStorage.removeItem(keys.scheduleMatrix);
       localStorage.removeItem(keys.scheduleFileName);
