@@ -949,16 +949,29 @@
       return `${/号间|胃镜|青龙山/.test(title) ? "@" : ""}${person.name}`;
     }
 
+    function getCombinedDutyLine() {
+      const combinedSlot = state.slots.find(slot => norm(slot.title) === "总值班/二线班");
+      const combinedNames = combinedSlot
+        ? combinedSlot.peopleIds.map(personById).filter(Boolean).map(person => person.name)
+        : [];
+      const uniqueCombined = [...new Set(combinedNames)];
+      if (uniqueCombined.length) return `总值班、二线班：${uniqueCombined.join("、")}`;
+      const total = state.specialDuty["总值班"];
+      const second = state.specialDuty["二线班"];
+      if (!total && !second) return "";
+      return `总值班、二线班：${total && second && total === second ? total : [total, second].filter(Boolean).join("、")}`;
+    }
+
     function generateOutput() {
       const lines = [];
       if (state.selectedDateLabel) lines.push(`${state.selectedDateLabel}排班:`);
       for (const slot of state.slots) {
+        if (norm(slot.title) === "总值班/二线班") continue;
         const names = slot.peopleIds.map(personById).filter(Boolean).map(person => formatName(person, slot.title));
         lines.push(outputLine(slot.title, names));
       }
-      const total = state.specialDuty["总值班"];
-      const second = state.specialDuty["二线班"];
-      if (total || second) lines.push(`总值班、二线班：${total && second && total === second ? total : [total, second].filter(Boolean).join("、")}`);
+      const combinedDutyLine = getCombinedDutyLine();
+      if (combinedDutyLine) lines.push(combinedDutyLine);
       const notes = norm(els.notesText.value);
       if (notes) lines.push("备注:", notes);
       lines.push("总值班随时进行人员协调!");
