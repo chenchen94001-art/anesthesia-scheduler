@@ -166,6 +166,13 @@
       overflow: auto;
     }
 
+    .chip-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 6px;
+      align-items: stretch;
+    }
+
     .chip {
       border: 1px solid var(--line);
       border-radius: 7px;
@@ -175,6 +182,11 @@
       text-align: left;
     }
 
+    .chip-main {
+      width: 100%;
+      cursor: default;
+    }
+
     .chip.selected {
       border-color: var(--brand);
       background: var(--brand-soft);
@@ -182,6 +194,16 @@
 
     .chip.assigned {
       opacity: 0.55;
+    }
+
+    .chip-remove {
+      width: 30px;
+      min-width: 30px;
+      padding: 0;
+      border-radius: 7px;
+      color: #b42318;
+      font-size: 16px;
+      line-height: 1;
     }
 
     .name {
@@ -558,7 +580,7 @@
           state.specialDuty[name] = shift;
           continue;
         }
-        state.basePeople.push({ id: id("p"), name, shift });
+        state.basePeople.push({ id: id("p"), name, shift, source: "base" });
       }
       combinePeople();
       removeMissingAssignments();
@@ -572,7 +594,7 @@
       for (const person of [...state.basePeople, ...state.outsidePeople]) {
         const key = `${person.name}__${person.shift}`;
         if (seen.has(key)) continue;
-        state.people.push({ ...person, id: id("p") });
+        state.people.push({ ...person, id: id("p"), source: person.source || "base" });
         seen.add(key);
       }
     }
@@ -673,6 +695,24 @@
       render();
     }
 
+    function removePerson(personId) {
+      const person = personById(personId);
+      if (!person) return;
+      state.people = state.people.filter(item => item.id !== personId);
+      for (const slot of state.slots) {
+        slot.peopleIds = slot.peopleIds.filter(idValue => idValue !== personId);
+      }
+      if (person.source === "base") {
+        state.basePeople = state.basePeople.filter(item => !(item.name === person.name && item.shift === person.shift));
+      }
+      if (person.source === "outside") {
+        state.outsidePeople = state.outsidePeople.filter(item => !(item.name === person.name && item.shift === person.shift));
+        els.outsidePeople.value = state.outsidePeople.map(item => [item.name, item.shift || ""].filter(Boolean).join(" ")).join("\n");
+        localStorage.setItem(keys.outsideText, els.outsidePeople.value);
+      }
+      render();
+    }
+
     function removeMissingAssignments() {
       const valid = new Set(state.people.map(person => person.id));
       for (const slot of state.slots) slot.peopleIds = slot.peopleIds.filter(personId => valid.has(personId));
@@ -716,11 +756,21 @@
       }
       els.peopleList.innerHTML = "";
       for (const person of state.people) {
-        const chip = document.createElement("button");
+        const row = document.createElement("div");
+        row.className = "chip-row";
+        const chip = document.createElement("div");
         chip.className = `chip ${counts.has(person.id) ? "assigned" : ""}`;
-        chip.type = "button";
+        chip.classList.add("chip-main");
         chip.innerHTML = `<div class="name">${escapeHtml(person.name)}</div><div class="shift">${escapeHtml(person.shift || "未备注")}</div>`;
-        els.peopleList.appendChild(chip);
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.className = "chip-remove";
+        removeButton.title = `删除 ${person.name}`;
+        removeButton.setAttribute("aria-label", `删除 ${person.name}`);
+        removeButton.textContent = "×";
+        removeButton.addEventListener("click", () => removePerson(person.id));
+        row.append(chip, removeButton);
+        els.peopleList.appendChild(row);
       }
     }
 
@@ -878,7 +928,7 @@
     });
 
     els.refreshOutside.addEventListener("click", () => {
-      state.outsidePeople = parsePeopleText(els.outsidePeople.value);
+      state.outsidePeople = parsePeopleText(els.outsidePeople.value).map(person => ({ ...person, source: "outside" }));
       combinePeople();
       removeMissingAssignments();
       autoAssign();
@@ -937,7 +987,7 @@
     }
     if (savedNotes !== null) els.notesText.value = savedNotes;
     if (savedOutside !== null) els.outsidePeople.value = savedOutside;
-    state.outsidePeople = [];
+    state.outsidePeople = parsePeopleText(els.outsidePeople.value).map(person => ({ ...person, source: "outside" }));
     applyTemplate();
     loadSchedule();
     updateFileStatus();
