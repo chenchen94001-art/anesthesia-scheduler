@@ -517,6 +517,7 @@
 
     const keys = {
       scheduleMatrix: "mobileScheduler.scheduleMatrix.v1",
+      scheduleMatrixVersion: "mobileScheduler.scheduleMatrixVersion.v2",
       scheduleFileName: "mobileScheduler.scheduleFileName.v1",
       selectedDateColumn: "mobileScheduler.selectedDateColumn.v1",
       outsideText: "mobileScheduler.outsideText.v1",
@@ -661,12 +662,20 @@
 
     function saveSchedule(matrixRows, fileName) {
       localStorage.setItem(keys.scheduleMatrix, JSON.stringify(matrixRows));
+      localStorage.setItem(keys.scheduleMatrixVersion, "v2");
       localStorage.setItem(keys.scheduleFileName, fileName);
       updateFileStatus();
     }
 
     function loadSchedule() {
       try {
+        if (localStorage.getItem(keys.scheduleMatrixVersion) !== "v2") {
+          localStorage.removeItem(keys.scheduleMatrix);
+          localStorage.removeItem(keys.scheduleFileName);
+          localStorage.removeItem(keys.selectedDateColumn);
+          localStorage.removeItem(keys.scheduleMatrixVersion);
+          return false;
+        }
         const text = localStorage.getItem(keys.scheduleMatrix);
         if (!text) return false;
         return setupSchedule(JSON.parse(text), localStorage.getItem(keys.selectedDateColumn) || "");
@@ -1052,6 +1061,7 @@
       localStorage.removeItem(keys.scheduleMatrix);
       localStorage.removeItem(keys.scheduleFileName);
       localStorage.removeItem(keys.selectedDateColumn);
+      localStorage.removeItem(keys.scheduleMatrixVersion);
       updateFileStatus();
       render();
     });
