@@ -883,7 +883,7 @@
 
     function formatPersonOptionLabel(person, counts) {
       const assignedCount = counts.get(person.id) || 0;
-      const suffix = assignedCount > 0 ? (assignedCount > 1 ? `（已选${assignedCount}次）` : "（已选）") : "";
+      const suffix = assignedCount > 0 ? " 🟡" : "";
       const base = [person.name, person.shift || ""].filter(Boolean).join(" ");
       return `${base}${suffix}`;
     }
@@ -1015,7 +1015,7 @@
       if (notes) lines.push("备注:", notes);
       lines.push("总值班随时进行人员协调!");
       const warmMessage = getDailyWarmMessage();
-      if (warmMessage) lines.push(warmMessage);
+      if (warmMessage) lines.push(`💫 ${warmMessage}`);
       els.outputText.value = lines.join("\n");
     }
 
