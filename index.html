@@ -158,6 +158,26 @@
       line-height: 1.45;
     }
 
+    .people-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .people-filter {
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--muted);
+      background: #fff;
+    }
+
+    .people-filter.active {
+      color: var(--brand);
+      border-color: #b2ddff;
+      background: #eff8ff;
+    }
+
     .chips {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -244,6 +264,30 @@
     }
 
     .slots {
+      display: grid;
+      gap: 7px;
+    }
+
+    .slot-group {
+      display: grid;
+      gap: 7px;
+    }
+
+    .slot-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 2px 2px 0;
+    }
+
+    .slot-group-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .slot-group-list {
       display: grid;
       gap: 7px;
     }
@@ -346,6 +390,33 @@
       line-height: 1.55;
     }
 
+    .export-headline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 9px;
+      border: 1px solid #dbe7ff;
+      background: #f7faff;
+      border-radius: 8px;
+    }
+
+    .export-title {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .export-badge {
+      border: 1px solid #c7d7fe;
+      background: #fff;
+      color: var(--brand);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
     .sticky-actions {
       position: sticky;
       bottom: 0;
@@ -366,6 +437,153 @@
 
     .secondary-actions.single {
       grid-template-columns: 1fr;
+    }
+
+    @media (max-width: 420px) {
+      body {
+        font-size: 13px;
+      }
+
+      header {
+        padding: 8px 10px;
+      }
+
+      h1 {
+        font-size: 16px;
+      }
+
+      .sub {
+        margin-top: 2px;
+        font-size: 11px;
+        line-height: 1.4;
+      }
+
+      .steps {
+        padding: 6px 8px 0;
+        gap: 5px;
+      }
+
+      .step-tab {
+        padding: 6px 2px;
+        font-size: 11px;
+      }
+
+      main {
+        padding: 8px;
+        gap: 8px;
+      }
+
+      .panel-head {
+        padding: 8px 9px;
+      }
+
+      .panel-body {
+        padding: 9px;
+        gap: 8px;
+      }
+
+      input[type="file"], select, textarea {
+        padding: 7px;
+      }
+
+      button {
+        padding: 7px 8px;
+      }
+
+      .people-filters {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .people-filter {
+        width: 100%;
+        padding: 5px 6px;
+        font-size: 11px;
+        text-align: center;
+      }
+
+      .chips {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-height: 240px;
+      }
+
+      .chip {
+        padding: 5px;
+      }
+
+      .slot-group-head {
+        padding: 0;
+      }
+
+      .slot-title {
+        font-size: 12px;
+      }
+
+      .slot-head {
+        padding: 6px;
+      }
+
+      .slot-body {
+        padding: 6px;
+        gap: 5px;
+      }
+
+      .assigned-pill {
+        padding: 3px 6px;
+        font-size: 11px;
+      }
+
+      .slot-actions {
+        grid-template-columns: 1fr;
+        gap: 5px;
+      }
+
+      .slot-actions button {
+        width: 100%;
+      }
+
+      .status {
+        padding: 6px;
+        font-size: 11px;
+      }
+
+      .export-headline {
+        padding: 7px 8px;
+      }
+
+      .export-title {
+        font-size: 12px;
+      }
+
+      .output {
+        min-height: 180px;
+      }
+
+      .secondary-actions {
+        padding: 0 8px 8px;
+      }
+
+      .sticky-actions {
+        padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+      }
+    }
+
+    @media (max-width: 360px) {
+      .step-tab {
+        font-size: 10px;
+      }
+
+      .people-filter {
+        font-size: 10px;
+      }
+
+      .chips {
+        max-height: 220px;
+      }
+
+      .assigned-mark {
+        font-size: 13px;
+      }
     }
 
     @media (min-width: 760px) {
@@ -412,6 +630,11 @@
           <textarea id="outsidePeople" placeholder="每行一个人，只记忆在这里；点刷新后加入人员池。"></textarea>
           <button id="refreshOutside" class="primary" type="button">刷新表外人员</button>
         </div>
+        <div class="people-filters" id="peopleFilters">
+          <button class="people-filter active" type="button" data-people-filter="all">全部</button>
+          <button class="people-filter" type="button" data-people-filter="missing">未排</button>
+          <button class="people-filter" type="button" data-people-filter="assigned">已排</button>
+        </div>
         <div class="chips" id="peopleList"></div>
         <div class="undo-bar" id="undoBar" hidden>
           <span class="hint" id="undoText"></span>
@@ -450,6 +673,7 @@
         <div class="template-actions">
           <button id="clearTemplateAssignments" type="button">清空</button>
         </div>
+        <div id="peopleReminder"></div>
         <div class="slots" id="slots"></div>
       </div>
     </section>
@@ -457,13 +681,20 @@
     <section class="panel" data-step-panel="2" hidden>
       <div class="panel-head">
         <span>导出</span>
-        <button id="copyText" class="primary" type="button">复制</button>
+        <button id="copyText" class="primary" type="button">复制微信版</button>
       </div>
       <div class="panel-body">
+        <div class="export-headline">
+          <div>
+            <div class="export-title">微信发送版</div>
+            <div class="hint">已按群消息阅读顺序整理</div>
+          </div>
+          <span class="export-badge">可直接复制</span>
+        </div>
         <div id="statusList"></div>
         <div>
           <label for="notesText">备注</label>
-          <textarea id="notesText" placeholder="备注会保存"></textarea>
+          <textarea id="notesText" placeholder="这里的备注会一起带进微信发送内容"></textarea>
         </div>
         <textarea id="outputText" class="output" readonly></textarea>
       </div>
@@ -490,6 +721,7 @@
       outsidePeople: [],
       people: [],
       slots: [],
+      peopleFilter: "all",
       selectedPersonId: "",
       hiddenPeopleKeys: [],
       lastRemovedPerson: null
@@ -501,6 +733,8 @@
       dateSelect: document.querySelector("#dateSelect"),
       outsidePeople: document.querySelector("#outsidePeople"),
       refreshOutside: document.querySelector("#refreshOutside"),
+      peopleFilters: Array.from(document.querySelectorAll("[data-people-filter]")),
+      peopleReminder: document.querySelector("#peopleReminder"),
       peopleList: document.querySelector("#peopleList"),
       peopleCount: document.querySelector("#peopleCount"),
       undoBar: document.querySelector("#undoBar"),
@@ -555,6 +789,10 @@
     ]);
 
     const IGNORED_SELECTED_SLOT_TITLES = new Set([
+      "夜班", "备班", "备办", "备山", "二备", "总值班", "总值班/二线班"
+    ]);
+
+    const FIXED_TEMPLATE_SLOT_TITLES = new Set([
       "夜班", "备班", "备办", "备山", "二备", "总值班", "总值班/二线班"
     ]);
 
@@ -888,15 +1126,77 @@
       return `${base}${suffix}`;
     }
 
+    function isFixedTemplateSlotTitle(title) {
+      return FIXED_TEMPLATE_SLOT_TITLES.has(norm(title));
+    }
+
+    function isAssignedPerson(person, counts) {
+      return counts.has(person.id);
+    }
+
+    function getMissingPeople(counts) {
+      return state.people.filter(person => !counts.has(person.id) && !isMissingExempt(person));
+    }
+
+    function getVisiblePeople(people, counts) {
+      if (state.peopleFilter === "missing") return people.filter(person => !isAssignedPerson(person, counts) && !isMissingExempt(person));
+      if (state.peopleFilter === "assigned") return people.filter(person => isAssignedPerson(person, counts));
+      return people;
+    }
+
+    function renderPeopleFilters(counts) {
+      const totalCount = state.people.length;
+      const assignedCount = state.people.filter(person => isAssignedPerson(person, counts)).length;
+      const missingCount = getMissingPeople(counts).length;
+      const labels = {
+        all: `全部 ${totalCount}`,
+        missing: `未排 ${missingCount}`,
+        assigned: `已排 ${assignedCount}`
+      };
+      els.peopleFilters.forEach(button => {
+        const mode = button.dataset.peopleFilter || "all";
+        button.classList.toggle("active", mode === state.peopleFilter);
+        button.textContent = labels[mode] || labels.all;
+      });
+    }
+
+    function renderPeopleReminder() {
+      const counts = getSelectedCounts();
+      const duplicateCounts = getSelectedCounts();
+      const missing = getMissingPeople(counts);
+      const duplicates = state.people.filter(person => (duplicateCounts.get(person.id) || 0) > 1);
+      if (!state.people.length) {
+        els.peopleReminder.innerHTML = "";
+        return;
+      }
+      if (duplicates.length) {
+        els.peopleReminder.innerHTML = `<div class="status bad">普通岗位重复 ${duplicates.length} 人：${escapeHtml(duplicates.map(person => person.name).join("、"))}</div>`;
+        return;
+      }
+      if (missing.length) {
+        els.peopleReminder.innerHTML = `<div class="status warn">还有 ${missing.length} 人未排：${escapeHtml(missing.map(person => person.name).join("、"))}</div>`;
+        return;
+      }
+      els.peopleReminder.innerHTML = `<div class="status good">目前普通岗位已排完。</div>`;
+    }
+
     function renderPeople() {
       const counts = getSelectedCounts();
-      els.peopleCount.textContent = `${state.people.length}人`;
+      const visiblePeople = getVisiblePeople(state.people, counts);
+      els.peopleCount.textContent = state.peopleFilter === "all" ? `${state.people.length}人` : `${state.people.length}人 · 显示${visiblePeople.length}人`;
+      renderPeopleFilters(counts);
+      renderPeopleReminder();
       if (!state.people.length) {
         els.peopleList.innerHTML = `<div class="hint">请先导入 Excel，或刷新表外人员。</div>`;
         return;
       }
+      if (!visiblePeople.length) {
+        const emptyText = state.peopleFilter === "missing" ? "目前没有未排人员。" : "目前没有已排人员。";
+        els.peopleList.innerHTML = `<div class="hint">${emptyText}</div>`;
+        return;
+      }
       els.peopleList.innerHTML = "";
-      for (const person of state.people) {
+      for (const person of visiblePeople) {
         const row = document.createElement("div");
         row.className = "chip-row";
         const chip = document.createElement("div");
@@ -915,54 +1215,79 @@
       }
     }
 
+    function buildSlotCard(slot, counts) {
+      const slotEl = document.createElement("div");
+      slotEl.className = "slot";
+      const selectedOptions = state.people.map(person => `<option value="${person.id}">${escapeHtml(formatPersonOptionLabel(person, counts))}</option>`).join("");
+      slotEl.innerHTML = `
+        <div class="slot-head">
+          <div class="slot-title">${escapeHtml(slot.title)}</div>
+          <span class="hint">${slot.peopleIds.length}人</span>
+        </div>
+        <div class="slot-body">
+          <div class="assigned-list"></div>
+          <div class="slot-actions">
+            <select data-select="${slot.id}"><option value="">从人员池选择</option>${selectedOptions}</select>
+            <button type="button" data-pick="${slot.id}">选入</button>
+          </div>
+        </div>
+      `;
+      const list = slotEl.querySelector(".assigned-list");
+      slot.peopleIds.forEach((personId, index) => {
+        const person = personById(personId);
+        if (!person) return;
+        const pill = document.createElement("span");
+        pill.className = "assigned-pill";
+        pill.innerHTML = `${escapeHtml(person.name)} <button type="button">×</button>`;
+        pill.querySelector("button").addEventListener("click", () => removeAssignment(slot.id, personId, index));
+        list.appendChild(pill);
+      });
+      slotEl.querySelector(`[data-pick="${slot.id}"]`).addEventListener("click", () => {
+        const select = slotEl.querySelector(`[data-select="${slot.id}"]`);
+        assignToSlot(slot.id, select.value);
+        select.value = "";
+      });
+      return slotEl;
+    }
+
+    function appendSlotGroup(title, slots, counts) {
+      if (!slots.length) return;
+      const groupEl = document.createElement("section");
+      groupEl.className = "slot-group";
+      groupEl.innerHTML = `
+        <div class="slot-group-head">
+          <div class="slot-group-title">${escapeHtml(title)}</div>
+          <span class="hint">${slots.length}项</span>
+        </div>
+        <div class="slot-group-list"></div>
+      `;
+      const listEl = groupEl.querySelector(".slot-group-list");
+      slots.forEach(slot => listEl.appendChild(buildSlotCard(slot, counts)));
+      els.slots.appendChild(groupEl);
+    }
+
     function renderSlots() {
       const counts = getSelectedCounts();
+      const regularSlots = [];
+      const fixedSlots = [];
       els.slots.innerHTML = "";
       for (const slot of state.slots) {
-        const slotEl = document.createElement("div");
-        slotEl.className = "slot";
-        const selectedOptions = state.people.map(person => `<option value="${person.id}">${escapeHtml(formatPersonOptionLabel(person, counts))}</option>`).join("");
-        slotEl.innerHTML = `
-          <div class="slot-head">
-            <div class="slot-title">${escapeHtml(slot.title)}</div>
-            <span class="hint">${slot.peopleIds.length}人</span>
-          </div>
-          <div class="slot-body">
-            <div class="assigned-list"></div>
-            <div class="slot-actions">
-              <select data-select="${slot.id}"><option value="">从人员池选择</option>${selectedOptions}</select>
-              <button type="button" data-pick="${slot.id}">选入</button>
-            </div>
-          </div>
-        `;
-        const list = slotEl.querySelector(".assigned-list");
-        slot.peopleIds.forEach((personId, index) => {
-          const person = personById(personId);
-          if (!person) return;
-          const pill = document.createElement("span");
-          pill.className = "assigned-pill";
-          pill.innerHTML = `${escapeHtml(person.name)} <button type="button">×</button>`;
-          pill.querySelector("button").addEventListener("click", () => removeAssignment(slot.id, personId, index));
-          list.appendChild(pill);
-        });
-        slotEl.querySelector(`[data-pick="${slot.id}"]`).addEventListener("click", () => {
-          const select = slotEl.querySelector(`[data-select="${slot.id}"]`);
-          assignToSlot(slot.id, select.value);
-          select.value = "";
-        });
-        els.slots.appendChild(slotEl);
+        if (isFixedTemplateSlotTitle(slot.title)) fixedSlots.push(slot);
+        else regularSlots.push(slot);
       }
+      appendSlotGroup("常规岗位", regularSlots, counts);
+      appendSlotGroup("固定岗位", fixedSlots, counts);
     }
 
     function isMissingExempt(person) {
       const shift = norm(person.shift).replace(/\s/g, "");
-      return shift.includes("下夜");
+      return shift.includes("下夜") || shift.includes("夜休");
     }
 
     function renderStatus() {
       const counts = getCounts();
       const duplicateCounts = getCounts(true);
-      const missing = state.people.filter(person => !counts.has(person.id) && !isMissingExempt(person));
+      const missing = getMissingPeople(counts);
       const duplicates = state.people.filter(person => (duplicateCounts.get(person.id) || 0) > 1);
       const statuses = [];
       if (!state.people.length) statuses.push({ type: "warn", text: "还没有人员。" });
@@ -974,8 +1299,7 @@
 
     function outputLine(title, names) {
       const text = names.length ? names.join(title.includes("青龙山") || title.includes("胃镜") ? " " : "、") : "未安排";
-      if (/^\d+\+\d+$/.test(title) || ["夜班", "备班", "备山", "二备"].includes(title)) return `${title}：${text}`;
-      return `${title}: ${text}`;
+      return `${title}：${text}`;
     }
 
     function formatName(person, title) {
@@ -1003,20 +1327,22 @@
 
     function generateOutput() {
       const lines = [];
-      if (state.selectedDateLabel) lines.push(`${state.selectedDateLabel}排班:`);
+      const scheduleLines = [];
+      if (state.selectedDateLabel) lines.push(`${state.selectedDateLabel}排班`);
       for (const slot of state.slots) {
         if (norm(slot.title) === "总值班/二线班") continue;
         const names = slot.peopleIds.map(personById).filter(Boolean).map(person => formatName(person, slot.title));
-        lines.push(outputLine(slot.title, names));
+        scheduleLines.push(outputLine(slot.title, names));
       }
+      if (scheduleLines.length) lines.push("", ...scheduleLines);
       const combinedDutyLine = getCombinedDutyLine();
-      if (combinedDutyLine) lines.push(combinedDutyLine);
+      if (combinedDutyLine) lines.push("", combinedDutyLine);
       const notes = norm(els.notesText.value);
-      if (notes) lines.push("备注:", notes);
-      lines.push("总值班随时进行人员协调!");
+      if (notes) lines.push("", `备注：${notes}`);
+      lines.push("", "总值班随时进行人员协调！");
       const warmMessage = getDailyWarmMessage();
       if (warmMessage) lines.push(`💫 ${warmMessage}`);
-      els.outputText.value = lines.join("\n");
+      els.outputText.value = lines.filter((line, index, array) => !(line === "" && array[index - 1] === "")).join("\n");
     }
 
     function render() {
@@ -1101,6 +1427,10 @@
     els.applyTemplate.addEventListener("click", applyTemplate);
     els.undoRemove.addEventListener("click", restoreRemovedPerson);
     els.clearTemplateAssignments.addEventListener("click", clearSlotAssignments);
+    els.peopleFilters.forEach(button => button.addEventListener("click", () => {
+      state.peopleFilter = button.dataset.peopleFilter || "all";
+      renderPeople();
+    }));
     els.templateText.addEventListener("input", () => localStorage.setItem(keys.templateText, els.templateText.value));
     els.notesText.addEventListener("input", () => {
       localStorage.setItem(keys.notesText, els.notesText.value);
@@ -1131,10 +1461,12 @@
       try {
         await navigator.clipboard.writeText(els.outputText.value);
         els.copyText.textContent = "已复制";
-        setTimeout(() => els.copyText.textContent = "复制", 1200);
+        setTimeout(() => els.copyText.textContent = "复制微信版", 1200);
       } catch {
         els.outputText.select();
         document.execCommand("copy");
+        els.copyText.textContent = "已复制";
+        setTimeout(() => els.copyText.textContent = "复制微信版", 1200);
       }
     });
     els.prevStep.addEventListener("click", () => goStep(currentStep - 1));
