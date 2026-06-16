@@ -567,6 +567,39 @@
       ["李玥豪", "机动"]
     ]);
 
+    const DAILY_WARM_MESSAGES = [
+      "麻醉安全无小事，今天也要稳稳当当 🙂",
+      "多一分核对，少一分风险，平安就是最好的结果 🌷",
+      "忙一点没关系，安全这根弦一定要稳稳拉住 ✨",
+      "今天也请把细心装满，把平安带上 💙",
+      "每一次认真核查，都是对患者最温柔的保护 🩺",
+      "手术有节奏，安全要始终在线 😌",
+      "小心一点不嫌多，平安一点最值得 🌼",
+      "今天也做大家安心的那束光 ☀️",
+      "认真一点点，放心很多很多 🍀",
+      "麻醉路上不赶路，稳稳走好每一步 🌈",
+      "把流程记心里，把安全放第一位 💛",
+      "每一份平稳背后，都是大家细致的守护 🌸",
+      "今天也继续做让大家安心的那个人 🤍",
+      "再忙也别忘了，核对永远是安全感来源之一 🌟",
+      "平安麻醉，顺利手术，值得我们一遍遍认真 ✍️",
+      "轻轻松松上班，认认真真守护安全 😊",
+      "多看一眼，多问一句，往往就多一份安心 🌿",
+      "希望今天的每一台手术，都顺顺利利、平平安安 🙏",
+      "麻醉安全靠大家，细节到位心不慌 🫶",
+      "今天也请把专业和温柔一起带进手术间 💐",
+      "忙碌归忙碌，安全永远不能打折 ⭐",
+      "把每一步做到位，就是最踏实的守护 🩵",
+      "愿今日麻醉平稳，患者安心，大家顺心 🍎",
+      "认真工作的人，自带一种让人安心的力量 🌻",
+      "今天的好运，从核对清楚开始 😄",
+      "稳一点，细一点，暖一点，今天也很好 🌺",
+      "每一份从容，都是提前认真准备出来的 🧡",
+      "小小一句提醒，大大一份平安 🍀",
+      "希望忙碌的一天里，大家都平安顺利下班 🌙",
+      "今天也一起把安全感，悄悄放进每一个细节里 🪴"
+    ];
+
     function id(prefix) {
       return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     }
@@ -962,6 +995,12 @@
       return `总值班、二线班：${total && second && total === second ? total : [total, second].filter(Boolean).join("、")}`;
     }
 
+    function getDailyWarmMessage() {
+      const day = state.dateColumns.find(item => item.label === state.selectedDateLabel)?.day;
+      if (!day || !DAILY_WARM_MESSAGES.length) return "";
+      return DAILY_WARM_MESSAGES[(day - 1) % DAILY_WARM_MESSAGES.length];
+    }
+
     function generateOutput() {
       const lines = [];
       if (state.selectedDateLabel) lines.push(`${state.selectedDateLabel}排班:`);
@@ -975,6 +1014,8 @@
       const notes = norm(els.notesText.value);
       if (notes) lines.push("备注:", notes);
       lines.push("总值班随时进行人员协调!");
+      const warmMessage = getDailyWarmMessage();
+      if (warmMessage) lines.push(warmMessage);
       els.outputText.value = lines.join("\n");
     }
 
