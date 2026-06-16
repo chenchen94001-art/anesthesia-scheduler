@@ -158,26 +158,6 @@
       line-height: 1.45;
     }
 
-    .people-filters {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-
-    .people-filter {
-      padding: 5px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      color: var(--muted);
-      background: #fff;
-    }
-
-    .people-filter.active {
-      color: var(--brand);
-      border-color: #b2ddff;
-      background: #eff8ff;
-    }
-
     .chips {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -290,6 +270,7 @@
     .slot-group-list {
       display: grid;
       gap: 7px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .template-actions {
@@ -490,20 +471,8 @@
         padding: 7px 8px;
       }
 
-      .people-filters {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .people-filter {
-        width: 100%;
-        padding: 5px 6px;
-        font-size: 11px;
-        text-align: center;
-      }
-
       .chips {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         max-height: 240px;
       }
 
@@ -573,10 +542,6 @@
         font-size: 10px;
       }
 
-      .people-filter {
-        font-size: 10px;
-      }
-
       .chips {
         max-height: 220px;
       }
@@ -630,11 +595,6 @@
           <textarea id="outsidePeople" placeholder="每行一个人，只记忆在这里；点刷新后加入人员池。"></textarea>
           <button id="refreshOutside" class="primary" type="button">刷新表外人员</button>
         </div>
-        <div class="people-filters" id="peopleFilters">
-          <button class="people-filter active" type="button" data-people-filter="all">全部</button>
-          <button class="people-filter" type="button" data-people-filter="missing">未排</button>
-          <button class="people-filter" type="button" data-people-filter="assigned">已排</button>
-        </div>
         <div class="chips" id="peopleList"></div>
         <div class="undo-bar" id="undoBar" hidden>
           <span class="hint" id="undoText"></span>
@@ -669,7 +629,8 @@
 备班
 备山
 二备
-总值班/二线班</textarea>
+总值班
+二线班</textarea>
         <div class="template-actions">
           <button id="clearTemplateAssignments" type="button">清空</button>
         </div>
@@ -721,7 +682,6 @@
       outsidePeople: [],
       people: [],
       slots: [],
-      peopleFilter: "all",
       selectedPersonId: "",
       hiddenPeopleKeys: [],
       lastRemovedPerson: null
@@ -733,7 +693,6 @@
       dateSelect: document.querySelector("#dateSelect"),
       outsidePeople: document.querySelector("#outsidePeople"),
       refreshOutside: document.querySelector("#refreshOutside"),
-      peopleFilters: Array.from(document.querySelectorAll("[data-people-filter]")),
       peopleReminder: document.querySelector("#peopleReminder"),
       peopleList: document.querySelector("#peopleList"),
       peopleCount: document.querySelector("#peopleCount"),
@@ -770,7 +729,7 @@
       "1号间", "2号间", "5号间", "6号间", "7号间", "10号间", "11号间",
       "恢复室", "胃镜室", "青龙山", "总务", "机动",
       "2+5", "6+7", "10+11", "恢复室",
-      "夜班", "备班", "备山", "二备", "总值班/二线班"
+      "夜班", "备班", "备山", "二备", "总值班", "二线班"
     ].join("\n");
 
     const LEGACY_TEMPLATE_TEXTS = new Set([
@@ -785,15 +744,21 @@
         "恢复室", "胃镜室", "青龙山", "总务",
         "2+5", "6+7", "10+11", "恢复室补位",
         "夜班", "备班", "备山", "二备"
+      ].join("\n"),
+      [
+        "1号间", "2号间", "5号间", "6号间", "7号间", "10号间", "11号间",
+        "恢复室", "胃镜室", "青龙山", "总务", "机动",
+        "2+5", "6+7", "10+11", "恢复室",
+        "夜班", "备班", "备山", "二备", "总值班/二线班"
       ].join("\n")
     ]);
 
     const IGNORED_SELECTED_SLOT_TITLES = new Set([
-      "夜班", "备班", "备办", "备山", "二备", "总值班", "总值班/二线班"
+      "夜班", "备班", "备办", "备山", "二备", "总值班", "二线班", "总值班/二线班"
     ]);
 
     const FIXED_TEMPLATE_SLOT_TITLES = new Set([
-      "夜班", "备班", "备办", "备山", "二备", "总值班", "总值班/二线班"
+      "夜班", "备班", "备办", "备山", "二备", "总值班", "二线班", "总值班/二线班"
     ]);
 
     const AUTO_ASSIGN_SLOT_TITLES = new Set([
@@ -969,7 +934,15 @@
 
     function normalizeTemplateText(text) {
       const names = text.split(/\r?\n/).map(norm).filter(Boolean);
-      return names.length ? names.join("\n") : DEFAULT_TEMPLATE_TEXT;
+      const expandedNames = [];
+      for (const name of names) {
+        if (name === "总值班/二线班") {
+          expandedNames.push("总值班", "二线班");
+          continue;
+        }
+        expandedNames.push(name);
+      }
+      return expandedNames.length ? expandedNames.join("\n") : DEFAULT_TEMPLATE_TEXT;
     }
 
     function applyTemplate() {
@@ -1100,7 +1073,7 @@
     function getCounts(ignoreSpecial = false) {
       const counts = new Map();
       for (const slot of state.slots) {
-        if (ignoreSpecial && ["夜班", "备班", "备办", "备山", "二备"].includes(slot.title)) continue;
+        if (ignoreSpecial && ["夜班", "备班", "备办", "备山", "二备", "总值班", "二线班", "总值班/二线班"].includes(slot.title)) continue;
         for (const personId of slot.peopleIds) counts.set(personId, (counts.get(personId) || 0) + 1);
       }
       return counts;
@@ -1130,34 +1103,8 @@
       return FIXED_TEMPLATE_SLOT_TITLES.has(norm(title));
     }
 
-    function isAssignedPerson(person, counts) {
-      return counts.has(person.id);
-    }
-
     function getMissingPeople(counts) {
       return state.people.filter(person => !counts.has(person.id) && !isMissingExempt(person));
-    }
-
-    function getVisiblePeople(people, counts) {
-      if (state.peopleFilter === "missing") return people.filter(person => !isAssignedPerson(person, counts) && !isMissingExempt(person));
-      if (state.peopleFilter === "assigned") return people.filter(person => isAssignedPerson(person, counts));
-      return people;
-    }
-
-    function renderPeopleFilters(counts) {
-      const totalCount = state.people.length;
-      const assignedCount = state.people.filter(person => isAssignedPerson(person, counts)).length;
-      const missingCount = getMissingPeople(counts).length;
-      const labels = {
-        all: `全部 ${totalCount}`,
-        missing: `未排 ${missingCount}`,
-        assigned: `已排 ${assignedCount}`
-      };
-      els.peopleFilters.forEach(button => {
-        const mode = button.dataset.peopleFilter || "all";
-        button.classList.toggle("active", mode === state.peopleFilter);
-        button.textContent = labels[mode] || labels.all;
-      });
     }
 
     function renderPeopleReminder() {
@@ -1182,21 +1129,14 @@
 
     function renderPeople() {
       const counts = getSelectedCounts();
-      const visiblePeople = getVisiblePeople(state.people, counts);
-      els.peopleCount.textContent = state.peopleFilter === "all" ? `${state.people.length}人` : `${state.people.length}人 · 显示${visiblePeople.length}人`;
-      renderPeopleFilters(counts);
+      els.peopleCount.textContent = `${state.people.length}人`;
       renderPeopleReminder();
       if (!state.people.length) {
         els.peopleList.innerHTML = `<div class="hint">请先导入 Excel，或刷新表外人员。</div>`;
         return;
       }
-      if (!visiblePeople.length) {
-        const emptyText = state.peopleFilter === "missing" ? "目前没有未排人员。" : "目前没有已排人员。";
-        els.peopleList.innerHTML = `<div class="hint">${emptyText}</div>`;
-        return;
-      }
       els.peopleList.innerHTML = "";
-      for (const person of visiblePeople) {
+      for (const person of state.people) {
         const row = document.createElement("div");
         row.className = "chip-row";
         const chip = document.createElement("div");
@@ -1307,10 +1247,14 @@
     }
 
     function getCombinedDutyLine() {
+      const totalSlot = state.slots.find(slot => norm(slot.title) === "总值班");
+      const secondSlot = state.slots.find(slot => norm(slot.title) === "二线班");
+      const totalNames = totalSlot ? totalSlot.peopleIds.map(personById).filter(Boolean).map(person => person.name) : [];
+      const secondNames = secondSlot ? secondSlot.peopleIds.map(personById).filter(Boolean).map(person => person.name) : [];
+      const separatedNames = [...new Set([...totalNames, ...secondNames])];
+      if (separatedNames.length) return `总值班、二线班：${separatedNames.join("、")}`;
       const combinedSlot = state.slots.find(slot => norm(slot.title) === "总值班/二线班");
-      const combinedNames = combinedSlot
-        ? combinedSlot.peopleIds.map(personById).filter(Boolean).map(person => person.name)
-        : [];
+      const combinedNames = combinedSlot ? combinedSlot.peopleIds.map(personById).filter(Boolean).map(person => person.name) : [];
       const uniqueCombined = [...new Set(combinedNames)];
       if (uniqueCombined.length) return `总值班、二线班：${uniqueCombined.join("、")}`;
       const total = state.specialDuty["总值班"];
@@ -1330,7 +1274,7 @@
       const scheduleLines = [];
       if (state.selectedDateLabel) lines.push(`${state.selectedDateLabel}排班`);
       for (const slot of state.slots) {
-        if (norm(slot.title) === "总值班/二线班") continue;
+        if (["总值班/二线班", "总值班", "二线班"].includes(norm(slot.title))) continue;
         const names = slot.peopleIds.map(personById).filter(Boolean).map(person => formatName(person, slot.title));
         scheduleLines.push(outputLine(slot.title, names));
       }
@@ -1427,10 +1371,6 @@
     els.applyTemplate.addEventListener("click", applyTemplate);
     els.undoRemove.addEventListener("click", restoreRemovedPerson);
     els.clearTemplateAssignments.addEventListener("click", clearSlotAssignments);
-    els.peopleFilters.forEach(button => button.addEventListener("click", () => {
-      state.peopleFilter = button.dataset.peopleFilter || "all";
-      renderPeople();
-    }));
     els.templateText.addEventListener("input", () => localStorage.setItem(keys.templateText, els.templateText.value));
     els.notesText.addEventListener("input", () => {
       localStorage.setItem(keys.notesText, els.notesText.value);
