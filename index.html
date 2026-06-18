@@ -762,7 +762,7 @@
     ]);
 
     const AUTO_ASSIGN_SLOT_TITLES = new Set([
-      "夜班", "备班", "备山", "二备", "胃镜室", "青龙山", "总务", "机动"
+      "夜班", "备班", "备山", "二备", "二线班", "胃镜室", "青龙山", "总务", "机动"
     ]);
 
     const AUTO_ASSIGN_NAME_TO_SLOT = new Map([
@@ -978,6 +978,11 @@
           if (mountainSlot && !mountainSlot.peopleIds.includes(person.id)) mountainSlot.peopleIds.push(person.id);
         }
       }
+      for (const [slotTitle, personName] of Object.entries(state.specialDuty)) {
+        const slot = state.slots.find(item => norm(item.title) === norm(slotTitle));
+        const person = state.people.find(item => norm(item.name) === norm(personName));
+        if (slot && person && !slot.peopleIds.includes(person.id)) slot.peopleIds.push(person.id);
+      }
     }
 
     function autoSlotTitle(person) {
@@ -988,6 +993,7 @@
       if (value === "夜" || value.includes("夜班")) return "夜班";
       if (value.includes("备山")) return "备山";
       if (value.includes("二备")) return "二备";
+      if (value.includes("二线")) return "二线班";
       if (value.includes("备")) return "备班";
       if (value.includes("胃")) return "胃镜室";
       if (value.includes("山")) return "青龙山";
@@ -1073,7 +1079,7 @@
     function getCounts(ignoreSpecial = false) {
       const counts = new Map();
       for (const slot of state.slots) {
-        if (ignoreSpecial && ["夜班", "备班", "备办", "备山", "二备", "总值班", "二线班", "总值班/二线班"].includes(slot.title)) continue;
+        if (ignoreSpecial && ["夜班", "备班", "备办", "备山", "二备", "二线班", "总值班/二线班"].includes(slot.title)) continue;
         for (const personId of slot.peopleIds) counts.set(personId, (counts.get(personId) || 0) + 1);
       }
       return counts;
@@ -1221,11 +1227,11 @@
 
     function isMissingExempt(person) {
       const shift = norm(person.shift).replace(/\s/g, "");
-      return shift.includes("下夜") || shift.includes("夜休");
+      return shift.includes("夜班") || shift.includes("夜休");
     }
 
     function renderStatus() {
-      const counts = getCounts();
+      const counts = getCounts(true);
       const duplicateCounts = getCounts(true);
       const missing = getMissingPeople(counts);
       const duplicates = state.people.filter(person => (duplicateCounts.get(person.id) || 0) > 1);
