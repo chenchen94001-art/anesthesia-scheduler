@@ -164,7 +164,7 @@
       border-radius: 8px;
       padding: 8px 9px;
       display: grid;
-      gap: 7px;
+      gap: 6px;
     }
 
     .import-diagnosis-head {
@@ -211,6 +211,14 @@
       font-size: 12px;
       line-height: 1.5;
       color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .import-diagnosis-details {
+      display: grid;
+      gap: 7px;
     }
 
     .import-diagnosis-extra {
@@ -489,33 +497,6 @@
       line-height: 1.55;
     }
 
-    .export-headline {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 8px 9px;
-      border: 1px solid #dbe7ff;
-      background: #f7faff;
-      border-radius: 8px;
-    }
-
-    .export-title {
-      font-weight: 700;
-      font-size: 13px;
-    }
-
-    .export-badge {
-      border: 1px solid #c7d7fe;
-      background: #fff;
-      color: var(--brand);
-      border-radius: 999px;
-      padding: 3px 8px;
-      font-size: 11px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
     .sticky-actions {
       position: sticky;
       bottom: 0;
@@ -648,14 +629,6 @@
         font-size: 11px;
       }
 
-      .export-headline {
-        padding: 7px 8px;
-      }
-
-      .export-title {
-        font-size: 12px;
-      }
-
       .output {
         min-height: 180px;
       }
@@ -778,13 +751,6 @@
         <button id="copyText" class="primary" type="button">复制微信版</button>
       </div>
       <div class="panel-body">
-        <div class="export-headline">
-          <div>
-            <div class="export-title">微信发送版</div>
-            <div class="hint">已按群消息阅读顺序整理</div>
-          </div>
-          <span class="export-badge">可直接复制</span>
-        </div>
         <div id="statusList"></div>
         <div>
           <label for="notesText">备注</label>
@@ -1052,14 +1018,26 @@
         `
         : "";
 
-      const toggleHtml = previewLines.length
-        ? `<button type="button" class="import-diagnosis-toggle" id="toggleImportPreview">${diagnosis.previewExpanded ? "收起识别预览" : "查看识别预览"}</button>`
-        : "";
-
-      const previewHtml = diagnosis.previewExpanded && previewLines.length
+      const previewHtml = previewLines.length
         ? `
           <div class="import-preview">
             ${previewLines.map(item => `<div class="import-preview-line">${escapeHtml(`${item.name}：${item.shift}`)}</div>`).join("")}
+          </div>
+        `
+        : "";
+
+      const hasDetails = diagnosis.status === "error" || hasSummary || previewLines.length;
+      const toggleHtml = hasDetails
+        ? `<button type="button" class="import-diagnosis-toggle" id="toggleImportPreview">${diagnosis.previewExpanded ? "收起导入详情" : "查看导入详情"}</button>`
+        : "";
+
+      const detailHtml = diagnosis.previewExpanded
+        ? `
+          <div class="import-diagnosis-details">
+            ${errorDetail}
+            ${suggestionList}
+            ${summaryHtml}
+            ${previewHtml}
           </div>
         `
         : "";
@@ -1070,11 +1048,8 @@
           <span class="import-diagnosis-badge ${badge.className}">${badge.label}</span>
         </div>
         <div class="import-diagnosis-message">${escapeHtml(message)}</div>
-        ${errorDetail}
-        ${suggestionList}
-        ${summaryHtml}
         ${toggleHtml}
-        ${previewHtml}
+        ${detailHtml}
       `;
 
       const toggleButton = els.importDiagnosis.querySelector("#toggleImportPreview");
