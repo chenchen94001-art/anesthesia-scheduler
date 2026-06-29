@@ -158,6 +158,124 @@
       line-height: 1.45;
     }
 
+    .import-diagnosis {
+      border: 1px solid #dbe4f0;
+      background: #f8fbff;
+      border-radius: 8px;
+      padding: 8px 9px;
+      display: grid;
+      gap: 7px;
+    }
+
+    .import-diagnosis-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .import-diagnosis-title {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .import-diagnosis-badge {
+      border: 1px solid #d5dbe6;
+      background: #fff;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .import-diagnosis-badge.warn {
+      color: var(--warn);
+      border-color: #fed7aa;
+      background: #fff7ed;
+    }
+
+    .import-diagnosis-badge.good {
+      color: var(--good);
+      border-color: #abefc6;
+      background: #ecfdf3;
+    }
+
+    .import-diagnosis-badge.bad {
+      color: var(--bad);
+      border-color: #fecaca;
+      background: #fff1f0;
+    }
+
+    .import-diagnosis-message {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text);
+    }
+
+    .import-diagnosis-extra {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .import-diagnosis-list {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .import-summary {
+      display: grid;
+      gap: 4px;
+      padding: 7px 8px;
+      border: 1px dashed #d5dbe6;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.75);
+    }
+
+    .import-summary-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .import-summary-line {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text);
+    }
+
+    .import-summary-preview {
+      color: var(--muted);
+    }
+
+    .import-diagnosis-toggle {
+      justify-self: start;
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+
+    .import-preview {
+      display: grid;
+      gap: 4px;
+      padding: 7px 8px;
+      border: 1px solid #dbe4f0;
+      border-radius: 7px;
+      background: #fff;
+    }
+
+    .import-preview-line {
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--text);
+      word-break: break-word;
+    }
+
     .chips {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -471,6 +589,20 @@
         padding: 7px 8px;
       }
 
+      .import-diagnosis {
+        padding: 7px 8px;
+      }
+
+      .import-diagnosis-title,
+      .import-diagnosis-message,
+      .import-diagnosis-extra,
+      .import-diagnosis-list,
+      .import-summary-title,
+      .import-summary-line,
+      .import-preview-line {
+        font-size: 11px;
+      }
+
       .chips {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         max-height: 240px;
@@ -585,6 +717,7 @@
           <label for="fileInput">导入 Excel</label>
           <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" />
           <div class="hint" id="fileStatus">未记忆排班表。</div>
+          <div class="import-diagnosis" id="importDiagnosis"></div>
         </div>
         <div>
           <label for="dateSelect">排班日期</label>
@@ -682,6 +815,7 @@
       outsidePeople: [],
       people: [],
       slots: [],
+      importDiagnosis: null,
       selectedPersonId: "",
       hiddenPeopleKeys: [],
       lastRemovedPerson: null
@@ -690,6 +824,7 @@
     const els = {
       fileInput: document.querySelector("#fileInput"),
       fileStatus: document.querySelector("#fileStatus"),
+      importDiagnosis: document.querySelector("#importDiagnosis"),
       dateSelect: document.querySelector("#dateSelect"),
       outsidePeople: document.querySelector("#outsidePeople"),
       refreshOutside: document.querySelector("#refreshOutside"),
@@ -714,6 +849,7 @@
     };
 
     let currentStep = 0;
+    state.importDiagnosis = createEmptyImportDiagnosis();
 
     const keys = {
       scheduleMatrix: "mobileScheduler.scheduleMatrix.v1",
@@ -770,6 +906,16 @@
       ["李玥豪", "机动"]
     ]);
 
+    const DEFAULT_IMPORT_DIAGNOSIS_MESSAGE = "如果安卓手机今天突然无法导入或班次不对，请先用 Chrome 打开，并点击底部“清空人员”后重新导入。";
+
+    const IMPORT_ERROR_SUGGESTIONS = [
+      "请确认使用 Chrome 浏览器打开，不要使用微信内置浏览器；",
+      "请先点击“清空人员”再重新导入；",
+      "请从手机本地 Download/下载 文件夹选择原始 .xlsx 文件；",
+      "请确认 Excel 第一个工作表是正式排班表；",
+      "请确认日期是横向 1–31，姓名在第一列。"
+    ];
+
     const DAILY_WARM_MESSAGES = [
       "麻醉安全无小事，今天也要稳稳当当 🙂",
       "多一分核对，少一分风险，平安就是最好的结果 🌷",
@@ -805,6 +951,139 @@
 
     function id(prefix) {
       return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function createEmptyImportSummary() {
+      return {
+        rowCount: 0,
+        dateRowIndex: null,
+        dateCount: 0,
+        selectedDateLabel: "",
+        basePeopleCount: 0,
+        previewRows: []
+      };
+    }
+
+    function createEmptyImportDiagnosis() {
+      return {
+        status: "idle",
+        fileName: "",
+        summary: createEmptyImportSummary(),
+        errorMessage: "",
+        previewExpanded: false
+      };
+    }
+
+    function updateImportDiagnosis(patch = {}) {
+      state.importDiagnosis = {
+        ...createEmptyImportDiagnosis(),
+        ...(state.importDiagnosis || {}),
+        ...patch,
+        summary: patch.summary !== undefined ? patch.summary : (state.importDiagnosis?.summary || createEmptyImportSummary())
+      };
+    }
+
+    function updateImportSummary(partial = {}) {
+      updateImportDiagnosis({
+        summary: {
+          ...createEmptyImportSummary(),
+          ...(state.importDiagnosis?.summary || {}),
+          ...partial
+        }
+      });
+    }
+
+    function renderImportDiagnosis() {
+      const diagnosis = state.importDiagnosis || createEmptyImportDiagnosis();
+      const summary = diagnosis.summary || createEmptyImportSummary();
+      const hasSummary = summary.rowCount || summary.dateCount || summary.basePeopleCount || summary.previewRows.length;
+      const previewRows = summary.previewRows || [];
+      const previewLines = previewRows.slice(0, 10);
+      const summaryPreview = previewRows.slice(0, 5);
+      const badgeMap = {
+        idle: { label: "导入建议", className: "warn" },
+        memory: { label: "本机记忆", className: "warn" },
+        parsing: { label: "正在读取", className: "warn" },
+        success: { label: "识别成功", className: "good" },
+        no_dates: { label: "需要检查", className: "bad" },
+        no_people: { label: "需要确认", className: "bad" },
+        error: { label: "导入失败", className: "bad" }
+      };
+      const badge = badgeMap[diagnosis.status] || badgeMap.idle;
+
+      let message = DEFAULT_IMPORT_DIAGNOSIS_MESSAGE;
+      if (diagnosis.status === "memory") {
+        message = "当前使用的是本机记忆的排班表。如今天班次不对，请点击底部“清空人员”后重新导入最新 Excel。";
+      } else if (diagnosis.status === "parsing") {
+        message = `正在读取 ${diagnosis.fileName || "Excel"}，请稍等一下。`;
+      } else if (diagnosis.status === "success") {
+        message = "已读取到当前排班表。下面这份识别摘要可以帮你快速判断日期、人数和班次是不是对的。";
+      } else if (diagnosis.status === "no_dates") {
+        message = "未识别到横向日期行。请检查 Excel 中是否有一行包含多个 1–31 的日期数字；如果安卓手机异常，请换 Chrome，并清空人员后重新导入。";
+      } else if (diagnosis.status === "no_people") {
+        message = "已识别日期，但该日期列没有读取到人员。请检查姓名是否在第一列，或当前日期列是否正确。";
+      } else if (diagnosis.status === "error") {
+        message = "这次导入没有成功。先别着急，按下面几条顺着排查，通常很快就能定位到是浏览器、缓存，还是文件本身的问题。";
+      }
+
+      const errorDetail = diagnosis.status === "error" && diagnosis.errorMessage
+        ? `<div class="import-diagnosis-extra">原始错误：${escapeHtml(diagnosis.errorMessage)}</div>`
+        : "";
+
+      const suggestionList = diagnosis.status === "error"
+        ? `
+          <ul class="import-diagnosis-list">
+            ${IMPORT_ERROR_SUGGESTIONS.map(item => `<li>${escapeHtml(item)}</li>`).join("")}
+          </ul>
+        `
+        : "";
+
+      const summaryHtml = hasSummary
+        ? `
+          <div class="import-summary">
+            <div class="import-summary-title">识别摘要</div>
+            <div class="import-summary-line">总行数：${summary.rowCount || 0}</div>
+            <div class="import-summary-line">日期行位置：${summary.dateRowIndex === null ? "未识别" : `第${summary.dateRowIndex + 1}行`}</div>
+            <div class="import-summary-line">识别到的日期数量：${summary.dateCount || 0}</div>
+            <div class="import-summary-line">当前选择日期：${escapeHtml(summary.selectedDateLabel || "未选择")}</div>
+            <div class="import-summary-line">读取到的人员数量：${summary.basePeopleCount || 0}</div>
+            ${summaryPreview.length ? `<div class="import-summary-preview">前5人预览：${escapeHtml(summaryPreview.map(item => `${item.name}：${item.shift}`).join("；"))}</div>` : ""}
+          </div>
+        `
+        : "";
+
+      const toggleHtml = previewLines.length
+        ? `<button type="button" class="import-diagnosis-toggle" id="toggleImportPreview">${diagnosis.previewExpanded ? "收起识别预览" : "查看识别预览"}</button>`
+        : "";
+
+      const previewHtml = diagnosis.previewExpanded && previewLines.length
+        ? `
+          <div class="import-preview">
+            ${previewLines.map(item => `<div class="import-preview-line">${escapeHtml(`${item.name}：${item.shift}`)}</div>`).join("")}
+          </div>
+        `
+        : "";
+
+      els.importDiagnosis.innerHTML = `
+        <div class="import-diagnosis-head">
+          <div class="import-diagnosis-title">导入诊断信息</div>
+          <span class="import-diagnosis-badge ${badge.className}">${badge.label}</span>
+        </div>
+        <div class="import-diagnosis-message">${escapeHtml(message)}</div>
+        ${errorDetail}
+        ${suggestionList}
+        ${summaryHtml}
+        ${toggleHtml}
+        ${previewHtml}
+      `;
+
+      const toggleButton = els.importDiagnosis.querySelector("#toggleImportPreview");
+      if (toggleButton) {
+        toggleButton.addEventListener("click", () => {
+          updateImportDiagnosis({ previewExpanded: !state.importDiagnosis.previewExpanded });
+          renderImportDiagnosis();
+        });
+      }
     }
 
     function personKey(person) {
@@ -848,12 +1127,24 @@
       state.matrixRows = matrixRows;
       state.dateColumns = [];
       const dateRowIndex = matrixRows.findIndex(row => row.filter(value => Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 31).length >= 5);
+      updateImportSummary({
+        rowCount: matrixRows.length,
+        dateRowIndex: dateRowIndex >= 0 ? dateRowIndex : null,
+        dateCount: 0,
+        selectedDateLabel: "",
+        basePeopleCount: 0,
+        previewRows: []
+      });
       if (dateRowIndex < 0) return false;
       const dateRow = matrixRows[dateRowIndex];
       const monthText = norm(dateRow[0]) || "本月";
       state.dateColumns = dateRow.map((value, colIndex) => ({ value, colIndex }))
         .filter(item => item.colIndex > 0 && Number.isInteger(Number(item.value)) && Number(item.value) >= 1 && Number(item.value) <= 31)
         .map(item => ({ colIndex: item.colIndex, day: Number(item.value), label: `${monthText}${Number(item.value)}日`, dateRowIndex }));
+      updateImportSummary({
+        dateRowIndex,
+        dateCount: state.dateColumns.length
+      });
       els.dateSelect.innerHTML = state.dateColumns.map(item => `<option value="${item.colIndex}">${escapeHtml(item.label)}</option>`).join("");
       const preferred = state.dateColumns.find(item => String(item.colIndex) === String(preferredCol));
       const today = state.dateColumns.find(item => item.day === new Date().getDate());
@@ -869,11 +1160,18 @@
       const selectedCol = Number(els.dateSelect.value || state.dateColumns[0]?.colIndex || 0);
       const selectedDate = state.dateColumns.find(item => item.colIndex === selectedCol);
       if (!selectedDate) {
+        state.selectedDateLabel = "";
+        updateImportSummary({
+          selectedDateLabel: "",
+          basePeopleCount: 0,
+          previewRows: []
+        });
         combinePeople();
         render();
         return;
       }
       state.selectedDateLabel = selectedDate.label;
+      const previewRows = [];
       const startRow = selectedDate.dateRowIndex + 2;
       for (let r = startRow; r < state.matrixRows.length; r++) {
         const row = state.matrixRows[r] || [];
@@ -885,7 +1183,16 @@
           continue;
         }
         state.basePeople.push({ id: id("p"), name, shift, source: "base" });
+        if (previewRows.length < 10) previewRows.push({ name, shift: shift || "空白" });
       }
+      updateImportSummary({
+        selectedDateLabel: state.selectedDateLabel,
+        basePeopleCount: state.basePeople.length,
+        previewRows
+      });
+      updateImportDiagnosis({
+        status: state.basePeople.length ? "success" : "no_people"
+      });
       combinePeople();
       removeMissingAssignments();
       autoAssign();
@@ -903,10 +1210,23 @@
       }
     }
 
+    function resetImportedScheduleState() {
+      state.matrixRows = [];
+      state.dateColumns = [];
+      state.selectedDateLabel = "";
+      state.specialDuty = {};
+      state.basePeople = [];
+      els.dateSelect.innerHTML = "";
+      combinePeople();
+      removeMissingAssignments();
+      autoAssign();
+    }
+
     function saveSchedule(matrixRows, fileName) {
       localStorage.setItem(keys.scheduleMatrix, JSON.stringify(matrixRows));
       localStorage.setItem(keys.scheduleMatrixVersion, "v2");
       localStorage.setItem(keys.scheduleFileName, fileName);
+      updateImportDiagnosis({ fileName });
       updateFileStatus();
     }
 
@@ -1296,6 +1616,7 @@
     }
 
     function render() {
+      renderImportDiagnosis();
       renderPeople();
       renderUndo();
       renderSlots();
@@ -1334,19 +1655,49 @@
 
     function parseWorkbook(file) {
       const reader = new FileReader();
+      updateImportDiagnosis({
+        status: "parsing",
+        fileName: file.name,
+        errorMessage: "",
+        previewExpanded: false,
+        summary: createEmptyImportSummary()
+      });
+      render();
       reader.onload = event => {
         try {
           const workbook = XLSX.read(new Uint8Array(event.target.result), { type: "array" });
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const matrixRows = matrixFromSheet(sheet);
           if (!setupSchedule(matrixRows)) {
-            alert("没有识别到横向日期排班表。");
+            resetImportedScheduleState();
+            updateImportDiagnosis({
+              status: "no_dates",
+              fileName: file.name,
+              errorMessage: "",
+              previewExpanded: false
+            });
+            render();
+            alert("没有识别到横向日期排班表，请查看下方导入诊断信息。");
             return;
           }
           saveSchedule(matrixRows, file.name);
           localStorage.setItem(keys.selectedDateColumn, els.dateSelect.value || "");
+          updateImportDiagnosis({
+            fileName: file.name,
+            errorMessage: "",
+            previewExpanded: false
+          });
+          render();
         } catch (error) {
-          alert(`导入失败：${error.message}`);
+          updateImportDiagnosis({
+            status: "error",
+            fileName: file.name,
+            errorMessage: error.message || String(error),
+            previewExpanded: false,
+            summary: createEmptyImportSummary()
+          });
+          render();
+          alert(`导入失败，请查看下方导入诊断信息。\n原始错误：${error.message || String(error)}`);
         }
       };
       reader.readAsArrayBuffer(file);
@@ -1394,6 +1745,7 @@
       state.selectedPersonId = "";
       state.hiddenPeopleKeys = [];
       state.lastRemovedPerson = null;
+      state.importDiagnosis = createEmptyImportDiagnosis();
       els.dateSelect.innerHTML = "";
       localStorage.removeItem(keys.scheduleMatrix);
       localStorage.removeItem(keys.scheduleFileName);
@@ -1434,7 +1786,15 @@
     if (savedOutside !== null) els.outsidePeople.value = savedOutside;
     state.outsidePeople = parsePeopleText(els.outsidePeople.value).map(person => ({ ...person, source: "outside" }));
     applyTemplate();
-    loadSchedule();
+    const loadedFromMemory = loadSchedule();
+    if (loadedFromMemory) {
+      updateImportDiagnosis({
+        status: "memory",
+        fileName: localStorage.getItem(keys.scheduleFileName) || "",
+        errorMessage: "",
+        previewExpanded: false
+      });
+    }
     updateFileStatus();
     render();
   </script>
