@@ -1949,12 +1949,13 @@
     }
 
     function outputLine(title, names) {
-      const text = names.length ? names.join(title.includes("青龙山") || title.includes("胃镜") ? " " : "、") : "未安排";
-      return `${title}：${text}`;
+      if (!names.length) return "";
+      const joiner = title.includes("青龙山") || title.includes("胃镜") ? " " : "，";
+      return `${title}：${names.join(joiner)}`;
     }
 
     function formatName(person, title) {
-      return `${/号间|胃镜|青龙山/.test(title) ? "@" : ""}${person.name}`;
+      return person.name;
     }
 
     function getCombinedDutyLine() {
@@ -1982,22 +1983,42 @@
 
     function generateOutput() {
       const lines = [];
-      const scheduleLines = [];
-      if (state.selectedDateLabel) lines.push(`${state.selectedDateLabel}排班`);
+
+      if (state.selectedDateLabel) {
+        lines.push(`${state.selectedDateLabel}排班`);
+      }
+
       for (const slot of state.slots) {
         if (["总值班/二线班", "总值班", "二线班"].includes(norm(slot.title))) continue;
-        const names = slot.peopleIds.map(personById).filter(Boolean).map(person => formatName(person, slot.title));
-        scheduleLines.push(outputLine(slot.title, names));
+
+        const names = slot.peopleIds
+          .map(personById)
+          .filter(Boolean)
+          .map(person => formatName(person, slot.title));
+
+        const line = outputLine(slot.title, names);
+        if (line) lines.push(line);
       }
-      if (scheduleLines.length) lines.push("", ...scheduleLines);
+
       const combinedDutyLine = getCombinedDutyLine();
-      if (combinedDutyLine) lines.push("", combinedDutyLine);
+      if (combinedDutyLine) {
+        lines.push(combinedDutyLine);
+      }
+
       const notes = norm(els.notesText.value);
-      if (notes) lines.push("", `备注：${notes}`);
-      lines.push("", "总值班随时进行人员协调！");
+      if (notes) {
+        lines.push(`备注：${notes}`);
+      }
+
+      lines.push("总值班随时进行人员协调！");
+
       const warmMessage = getDailyWarmMessage();
-      if (warmMessage) lines.push(`💫 ${warmMessage}`);
-      els.outputText.value = lines.filter((line, index, array) => !(line === "" && array[index - 1] === "")).join("\n");
+      if (warmMessage) {
+        lines.push("");
+        lines.push(`💫 ${warmMessage}`);
+      }
+
+      els.outputText.value = lines.join("\n");
     }
 
     function render() {
