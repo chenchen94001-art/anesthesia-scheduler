@@ -1625,8 +1625,23 @@
       return FIXED_TEMPLATE_SLOT_TITLES.has(norm(title));
     }
 
+    function fixedNightPersonIds() {
+      const ids = new Set();
+      for (const slot of state.slots) {
+        if (norm(slot.title) !== "夜班") continue;
+        for (const personId of slot.peopleIds) ids.add(personId);
+      }
+      return ids;
+    }
+
+    function formatPersonWithShift(person) {
+      const shift = norm(person?.shift);
+      return `${person.name}${shift ? `（${shift}）` : ""}`;
+    }
+
     function getMissingPeople(counts) {
-      return state.people.filter(person => !counts.has(person.id) && !isMissingExempt(person));
+      const nightIds = fixedNightPersonIds();
+      return state.people.filter(person => !counts.has(person.id) && !nightIds.has(person.id) && !isMissingExempt(person));
     }
 
     function renderPeopleReminder() {
@@ -1643,7 +1658,7 @@
         return;
       }
       if (missing.length) {
-        els.peopleReminder.innerHTML = `<div class="status warn">还有 ${missing.length} 人未排：${escapeHtml(missing.map(person => person.name).join("、"))}</div>`;
+        els.peopleReminder.innerHTML = `<div class="status warn">还有 ${missing.length} 人未排：${escapeHtml(missing.map(formatPersonWithShift).join("、"))}</div>`;
         return;
       }
       els.peopleReminder.innerHTML = `<div class="status good">目前普通岗位已排完。</div>`;
@@ -1759,7 +1774,7 @@
 
     function isMissingExempt(person) {
       const shift = norm(person.shift).replace(/\s/g, "");
-      return shift.includes("夜班") || shift.includes("夜休");
+      return shift.includes("夜班") || shift.includes("夜休") || shift === "夜";
     }
 
     function renderStatus() {
@@ -1770,7 +1785,7 @@
       const statuses = [];
       if (!state.people.length) statuses.push({ type: "warn", text: "还没有人员。" });
       else if (!missing.length && !duplicates.length) statuses.push({ type: "good", text: "没有遗漏，也没有普通岗位重复。" });
-      if (missing.length) statuses.push({ type: "warn", text: `遗漏 ${missing.length} 人：${missing.map(p => p.name).join("、")}` });
+      if (missing.length) statuses.push({ type: "warn", text: `遗漏 ${missing.length} 人：${missing.map(formatPersonWithShift).join("、")}` });
       if (duplicates.length) statuses.push({ type: "bad", text: `重复 ${duplicates.length} 人：${duplicates.map(p => p.name).join("、")}` });
       els.statusList.innerHTML = statuses.map(item => `<div class="status ${item.type}">${escapeHtml(item.text)}</div>`).join("");
     }
