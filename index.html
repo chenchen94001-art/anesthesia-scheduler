@@ -402,6 +402,13 @@
     .template-actions {
       display: flex;
       justify-content: flex-end;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+
+    .previous-day-report {
+      display: grid;
+      gap: 5px;
     }
 
     .undo-bar {
@@ -738,9 +745,11 @@
 总值班
 二线班</textarea>
         <div class="template-actions">
+          <button id="fillFromPreviousDay" type="button">参考前一天填入常规岗位</button>
           <button id="clearTemplateAssignments" type="button">清空</button>
         </div>
         <div id="peopleReminder"></div>
+        <div class="previous-day-report" id="previousDayReport"></div>
         <div class="slots" id="slots"></div>
       </div>
     </section>
@@ -782,6 +791,7 @@
       people: [],
       slots: [],
       importDiagnosis: null,
+      previousDayFillReport: null,
       selectedPersonId: "",
       hiddenPeopleKeys: [],
       lastRemovedPerson: null
@@ -803,6 +813,8 @@
       templateText: document.querySelector("#templateText"),
       applyTemplate: document.querySelector("#applyTemplate"),
       clearTemplateAssignments: document.querySelector("#clearTemplateAssignments"),
+      fillFromPreviousDay: document.querySelector("#fillFromPreviousDay"),
+      previousDayReport: document.querySelector("#previousDayReport"),
       slots: document.querySelector("#slots"),
       statusList: document.querySelector("#statusList"),
       notesText: document.querySelector("#notesText"),
@@ -1130,6 +1142,7 @@
     }
 
     function rebuildPeopleFromDate() {
+      state.previousDayFillReport = null;
       state.basePeople = [];
       state.specialDuty = {};
       const selectedCol = Number(els.dateSelect.value || state.dateColumns[0]?.colIndex || 0);
@@ -1191,6 +1204,7 @@
       state.selectedDateLabel = "";
       state.specialDuty = {};
       state.basePeople = [];
+      state.previousDayFillReport = null;
       els.dateSelect.innerHTML = "";
       combinePeople();
       removeMissingAssignments();
@@ -1241,6 +1255,7 @@
     }
 
     function applyTemplate() {
+      state.previousDayFillReport = null;
       els.templateText.value = normalizeTemplateText(els.templateText.value);
       const names = els.templateText.value.split(/\r?\n/).map(norm).filter(Boolean);
       const previousAssignments = new Map();
@@ -1256,6 +1271,132 @@
       }));
       localStorage.setItem(keys.templateText, els.templateText.value);
       autoAssign();
+      render();
+    }
+
+    function isNightBlockedForRegular(person) {
+      const value = norm(person?.shift).replace(/\s/g, "");
+      return value.includes("夜休") || value.includes("夜班") || value === "夜";
+    }
+
+    function isMountainBackup(person) {
+      return norm(person?.shift).replace(/\s/g, "").includes("备山");
+    }
+
+    function selectedDateColumn() {
+      const selectedCol = Number(els.dateSelect.value || state.dateColumns[0]?.colIndex || 0);
+      return state.dateColumns.find(item => item.colIndex === selectedCol) || null;
+    }
+
+    function regularSlots() {
+      return state.slots.filter(slot => !isFixedTemplateSlotTitle(slot.title));
+    }
+
+    function findPreviousDateColumn() {
+      const selectedDate = selectedDateColumn();
+      if (!selectedDate) return { error: "未找到前一天日期列，无法自动参考前一天排班。" };
+      if (selectedDate.day === 1) return { error: "当前为本月1日，无法自动读取前一天，请手动排班。" };
+      const previousDate = state.dateColumns.find(item => item.day === selectedDate.day - 1);
+      if (!previousDate) return { error: "未找到前一天日期列，无法自动参考前一天排班。" };
+      return { previousDate };
+    }
+
+    function getPreviousDayRegularPeopleBySlot(previousCol) {
+      const titles = new Set(regularSlots().map(slot => norm(slot.title)));
+      const peopleBySlot = new Map();
+      const selectedDate = selectedDateColumn();
+      const startRow = (selectedDate?.dateRowIndex ?? previousCol.dateRowIndex) + 2;
+      for (let r = startRow; r < state.matrixRows.length; r += 1) {
+        const row = state.matrixRows[r] || [];
+        const name = norm(row[0]);
+        const previousShift = norm(row[previousCol.colIndex]);
+        if (!name || !previousShift || !titles.has(previousShift)) continue;
+        if (!peopleBySlot.has(previousShift)) peopleBySlot.set(previousShift, []);
+        peopleBySlot.get(previousShift).push(name);
+      }
+      return peopleBySlot;
+    }
+
+    function addUniqueName(list, name) {
+      if (name && !list.includes(name)) list.push(name);
+    }
+
+    function createPreviousDayReport(type = "good", message = "") {
+      return {
+        type,
+        message,
+        successCount: 0,
+        skippedCount: 0,
+        nightBlocked: [],
+        mountainBlocked: [],
+        missingPeople: [],
+        emptySlots: []
+      };
+    }
+
+    function fillRegularSlotsFromPreviousDay() {
+      const report = createPreviousDayReport();
+      const previousLookup = findPreviousDateColumn();
+      if (previousLookup.error) {
+        state.previousDayFillReport = createPreviousDayReport("warn", previousLookup.error);
+        render();
+        return;
+      }
+
+      const slots = regularSlots();
+      const previousPeopleBySlot = getPreviousDayRegularPeopleBySlot(previousLookup.previousDate);
+      if (!slots.length || !previousPeopleBySlot.size) {
+        state.previousDayFillReport = createPreviousDayReport("warn", "前一天排班信息不足，无法自动填入常规岗位。");
+        render();
+        return;
+      }
+
+      const peopleByName = new Map();
+      for (const person of state.people) {
+        const name = norm(person.name);
+        if (name && !peopleByName.has(name)) peopleByName.set(name, person);
+      }
+      const usedPeople = new Set();
+      for (const slot of slots) {
+        for (const personId of slot.peopleIds) {
+          if (personId) usedPeople.add(personId);
+        }
+      }
+
+      for (const slot of slots) {
+        const slotTitle = norm(slot.title);
+        const candidateNames = previousPeopleBySlot.get(slotTitle) || [];
+        let filledThisSlot = false;
+        if (!candidateNames.length) addUniqueName(report.emptySlots, slotTitle);
+
+        for (const name of candidateNames) {
+          const person = peopleByName.get(norm(name));
+          if (!person) {
+            addUniqueName(report.missingPeople, name);
+            continue;
+          }
+          if (isNightBlockedForRegular(person)) {
+            addUniqueName(report.nightBlocked, person.name);
+            continue;
+          }
+          if (isMountainBackup(person) && slotTitle !== "青龙山") {
+            addUniqueName(report.mountainBlocked, person.name);
+            continue;
+          }
+          if (usedPeople.has(person.id) || slot.peopleIds.includes(person.id)) continue;
+          slot.peopleIds.push(person.id);
+          usedPeople.add(person.id);
+          report.successCount += 1;
+          filledThisSlot = true;
+        }
+
+        if (!filledThisSlot && candidateNames.length) addUniqueName(report.emptySlots, slotTitle);
+      }
+
+      report.skippedCount = report.nightBlocked.length + report.mountainBlocked.length + report.missingPeople.length;
+      report.message = `已参考前一天填入常规岗位：成功 ${report.successCount} 人，跳过 ${report.skippedCount} 人。`;
+      report.type = report.successCount ? "good" : "warn";
+      state.previousDayFillReport = report;
       render();
     }
 
@@ -1428,6 +1569,22 @@
       els.peopleReminder.innerHTML = `<div class="status good">目前普通岗位已排完。</div>`;
     }
 
+    function renderPreviousDayFillReport() {
+      const report = state.previousDayFillReport;
+      if (!report) {
+        els.previousDayReport.innerHTML = "";
+        return;
+      }
+      const lines = [report.message];
+      if (report.nightBlocked?.length) lines.push(`因今天夜班/夜休未填入：${report.nightBlocked.join("、")}。`);
+      if (report.mountainBlocked?.length) lines.push(`因今天备山只能进入青龙山，未填入其他岗位：${report.mountainBlocked.join("、")}。`);
+      if (report.missingPeople?.length) lines.push(`今天不在人员池中，未填入：${report.missingPeople.join("、")}。`);
+      if (report.emptySlots?.length) lines.push(`未找到可填人员的岗位：${report.emptySlots.join("、")}。`);
+      els.previousDayReport.innerHTML = lines
+        .map((line, index) => `<div class="status ${index === 0 ? report.type : "warn"}">${escapeHtml(line)}</div>`)
+        .join("");
+    }
+
     function renderPeople() {
       const counts = getSelectedCounts();
       els.peopleCount.textContent = `${state.people.length}人`;
@@ -1593,6 +1750,7 @@
     function render() {
       renderImportDiagnosis();
       renderPeople();
+      renderPreviousDayFillReport();
       renderUndo();
       renderSlots();
       renderStatus();
@@ -1623,6 +1781,7 @@
     }
 
     function clearSlotAssignments() {
+      state.previousDayFillReport = null;
       for (const slot of state.slots) slot.peopleIds = [];
       autoAssign();
       render();
@@ -1630,6 +1789,7 @@
 
     function parseWorkbook(file) {
       const reader = new FileReader();
+      state.previousDayFillReport = null;
       updateImportDiagnosis({
         status: "parsing",
         fileName: file.name,
@@ -1693,6 +1853,7 @@
     });
 
     els.refreshOutside.addEventListener("click", () => {
+      state.previousDayFillReport = null;
       state.outsidePeople = parsePeopleText(els.outsidePeople.value).map(person => ({ ...person, source: "outside" }));
       combinePeople();
       removeMissingAssignments();
@@ -1701,6 +1862,7 @@
     });
 
     els.applyTemplate.addEventListener("click", applyTemplate);
+    els.fillFromPreviousDay.addEventListener("click", fillRegularSlotsFromPreviousDay);
     els.undoRemove.addEventListener("click", restoreRemovedPerson);
     els.clearTemplateAssignments.addEventListener("click", clearSlotAssignments);
     els.templateText.addEventListener("input", () => localStorage.setItem(keys.templateText, els.templateText.value));
@@ -1721,6 +1883,7 @@
       state.hiddenPeopleKeys = [];
       state.lastRemovedPerson = null;
       state.importDiagnosis = createEmptyImportDiagnosis();
+      state.previousDayFillReport = null;
       els.dateSelect.innerHTML = "";
       localStorage.removeItem(keys.scheduleMatrix);
       localStorage.removeItem(keys.scheduleFileName);
