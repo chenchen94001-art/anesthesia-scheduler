@@ -937,7 +937,7 @@
       "请确认日期是横向 1–31，姓名在第一列。"
     ];
 
-    const DAILY_WARM_MESSAGES = [
+    const DEFAULT_DAILY_WARM_MESSAGES = [
       "麻醉安全无小事，今天也要稳稳当当 🙂",
       "多一分核对，少一分风险，平安就是最好的结果 🌷",
       "忙一点没关系，安全这根弦一定要稳稳拉住 ✨",
@@ -969,6 +969,44 @@
       "希望忙碌的一天里，大家都平安顺利下班 🌙",
       "今天也一起把安全感，悄悄放进每一个细节里 🪴"
     ];
+
+    const PREOP_VISIT_WARM_MESSAGES = [
+      "术前多问一句，风险少漏一分；访视到位，麻醉更稳 🌷",
+      "一次认真访视，是手术安全的第一道守护 💫",
+      "看清病情，问全用药，术前访视越细，术中应对越稳 🌿",
+      "把风险想在前面，把安全守在身边；术前访视不可少 🩺",
+      "术前访视多一分耐心，患者围术期就多一分安心 🌼",
+      "病史、用药、过敏、气道，术前核对细一点，安全就近一点 🍀",
+      "访视不是流程，是发现风险、守住安全的开始 ✨",
+      "今天多做一次确认，明天少一分被动；术前访视请到位 💙",
+      "术前评估细，麻醉方案稳；每一次访视都值得认真 🌸",
+      "把患者情况摸清楚，把麻醉风险降下来；细致访视是基础 🧡",
+      "术前访视重在细节，细节背后就是患者安全 🌻",
+      "多看一眼检查，多问一句病史，多核一次用药，安全多一层保障 🪴",
+      "访视做扎实，交接更清楚，术中更从容 🌈",
+      "术前访视不走过场，麻醉安全才有底气 ⭐"
+    ];
+
+    const PREOP_VISIT_WARM_START_DATE = "2026-07-02";
+    const PREOP_VISIT_WARM_DAYS = 14;
+
+    function daysBetweenDates(startDateText, targetDateText) {
+      const startDate = new Date(`${startDateText}T00:00:00`);
+      const targetDate = new Date(`${targetDateText}T00:00:00`);
+      return Math.floor((targetDate - startDate) / 86400000);
+    }
+
+    function selectedDateTextForWarmMessage() {
+      const selectedDate = state.dateColumns.find(item => item.label === state.selectedDateLabel);
+      if (!selectedDate) return "";
+
+      const year = new Date().getFullYear();
+      const monthMatch = String(state.selectedDateLabel || "").match(/(\d{1,2})月/);
+      const month = monthMatch ? Number(monthMatch[1]) : new Date().getMonth() + 1;
+      const day = selectedDate.day;
+
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
 
     function id(prefix) {
       return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -1976,9 +2014,25 @@
     }
 
     function getDailyWarmMessage() {
-      const day = state.dateColumns.find(item => item.label === state.selectedDateLabel)?.day;
-      if (!day || !DAILY_WARM_MESSAGES.length) return "";
-      return DAILY_WARM_MESSAGES[(day - 1) % DAILY_WARM_MESSAGES.length];
+      const selectedDate = state.dateColumns.find(item => item.label === state.selectedDateLabel);
+      const day = selectedDate?.day;
+      if (!day) return "";
+
+      const selectedDateText = selectedDateTextForWarmMessage();
+      const preopDayIndex = selectedDateText
+        ? daysBetweenDates(PREOP_VISIT_WARM_START_DATE, selectedDateText)
+        : -1;
+
+      if (
+        preopDayIndex >= 0 &&
+        preopDayIndex < PREOP_VISIT_WARM_DAYS &&
+        PREOP_VISIT_WARM_MESSAGES.length
+      ) {
+        return PREOP_VISIT_WARM_MESSAGES[preopDayIndex % PREOP_VISIT_WARM_MESSAGES.length];
+      }
+
+      if (!DEFAULT_DAILY_WARM_MESSAGES.length) return "";
+      return DEFAULT_DAILY_WARM_MESSAGES[(day - 1) % DEFAULT_DAILY_WARM_MESSAGES.length];
     }
 
     function generateOutput() {
