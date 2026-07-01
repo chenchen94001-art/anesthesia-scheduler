@@ -792,6 +792,7 @@
       slots: [],
       importDiagnosis: null,
       previousDayFillReport: null,
+      activeDateColumn: "",
       selectedPersonId: "",
       hiddenPeopleKeys: [],
       lastRemovedPerson: null
@@ -836,6 +837,7 @@
       selectedDateColumn: "mobileScheduler.selectedDateColumn.v1",
       outsideText: "mobileScheduler.outsideText.v1",
       templateText: "mobileScheduler.templateText.v1",
+      slotAssignmentsByDate: "mobileScheduler.slotAssignmentsByDate.v1",
       notesText: "mobileScheduler.notesText.v1"
     };
 
@@ -1149,6 +1151,7 @@
       const selectedDate = state.dateColumns.find(item => item.colIndex === selectedCol);
       if (!selectedDate) {
         state.selectedDateLabel = "";
+        state.activeDateColumn = "";
         updateImportSummary({
           selectedDateLabel: "",
           basePeopleCount: 0,
@@ -1159,6 +1162,7 @@
         return;
       }
       state.selectedDateLabel = selectedDate.label;
+      state.activeDateColumn = String(selectedDate.colIndex);
       const previewRows = [];
       const startRow = selectedDate.dateRowIndex + 2;
       for (let r = startRow; r < state.matrixRows.length; r++) {
@@ -1184,6 +1188,7 @@
       combinePeople();
       removeMissingAssignments();
       autoAssign();
+      restoreSavedSlotAssignmentsForDate();
       render();
     }
 
@@ -1202,6 +1207,7 @@
       state.matrixRows = [];
       state.dateColumns = [];
       state.selectedDateLabel = "";
+      state.activeDateColumn = "";
       state.specialDuty = {};
       state.basePeople = [];
       state.previousDayFillReport = null;
@@ -1255,6 +1261,7 @@
     }
 
     function applyTemplate() {
+      saveCurrentSlotAssignments();
       state.previousDayFillReport = null;
       els.templateText.value = normalizeTemplateText(els.templateText.value);
       const names = els.templateText.value.split(/\r?\n/).map(norm).filter(Boolean);
@@ -1271,6 +1278,8 @@
       }));
       localStorage.setItem(keys.templateText, els.templateText.value);
       autoAssign();
+      restoreSavedSlotAssignmentsForDate();
+      saveCurrentSlotAssignments();
       render();
     }
 
@@ -1288,6 +1297,61 @@
       return state.dateColumns.find(item => item.colIndex === selectedCol) || null;
     }
 
+    function dateAssignmentKey(colIndex = state.activeDateColumn) {
+      const fileName = localStorage.getItem(keys.scheduleFileName) || "current";
+      return `${fileName}::${colIndex}`;
+    }
+
+    function readSlotAssignmentsByDate() {
+      try {
+        return JSON.parse(localStorage.getItem(keys.slotAssignmentsByDate) || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function writeSlotAssignmentsByDate(assignments) {
+      localStorage.setItem(keys.slotAssignmentsByDate, JSON.stringify(assignments));
+    }
+
+    function saveCurrentSlotAssignments(colIndex = state.activeDateColumn) {
+      if (!colIndex) return;
+      const assignments = readSlotAssignmentsByDate();
+      assignments[dateAssignmentKey(colIndex)] = state.slots.map(slot => ({
+        title: slot.title,
+        names: slot.peopleIds.map(personById).filter(Boolean).map(person => person.name)
+      }));
+      writeSlotAssignmentsByDate(assignments);
+    }
+
+    function savedAssignmentsForDate(colIndex) {
+      return readSlotAssignmentsByDate()[dateAssignmentKey(colIndex)] || [];
+    }
+
+    function personByName(name) {
+      const target = norm(name);
+      return state.people.find(person => norm(person.name) === target) || null;
+    }
+
+    function restoreSavedSlotAssignmentsForDate(colIndex = state.activeDateColumn) {
+      const savedSlots = savedAssignmentsForDate(colIndex);
+      if (!savedSlots.length) return;
+      const savedByTitle = new Map();
+      for (const savedSlot of savedSlots) {
+        const title = norm(savedSlot.title);
+        if (!savedByTitle.has(title)) savedByTitle.set(title, []);
+        savedByTitle.get(title).push([...(savedSlot.names || [])]);
+      }
+      for (const slot of state.slots) {
+        if (isFixedTemplateSlotTitle(slot.title)) continue;
+        const names = savedByTitle.get(norm(slot.title))?.shift() || [];
+        for (const name of names) {
+          const person = personByName(name);
+          if (person && !slot.peopleIds.includes(person.id)) slot.peopleIds.push(person.id);
+        }
+      }
+    }
+
     function regularSlots() {
       return state.slots.filter(slot => !isFixedTemplateSlotTitle(slot.title));
     }
@@ -1302,8 +1366,19 @@
     }
 
     function getPreviousDayRegularPeopleBySlot(previousCol) {
-      const titles = new Set(regularSlots().map(slot => norm(slot.title)));
       const peopleBySlot = new Map();
+      const savedSlots = savedAssignmentsForDate(previousCol.colIndex);
+      if (savedSlots.length) {
+        for (const savedSlot of savedSlots) {
+          const title = norm(savedSlot.title);
+          if (!title || isFixedTemplateSlotTitle(title)) continue;
+          if (!peopleBySlot.has(title)) peopleBySlot.set(title, []);
+          for (const name of savedSlot.names || []) peopleBySlot.get(title).push(name);
+        }
+        return peopleBySlot;
+      }
+
+      const titles = new Set(regularSlots().map(slot => norm(slot.title)));
       const selectedDate = selectedDateColumn();
       const startRow = (selectedDate?.dateRowIndex ?? previousCol.dateRowIndex) + 2;
       for (let r = startRow; r < state.matrixRows.length; r += 1) {
@@ -1397,6 +1472,7 @@
       report.message = `已参考前一天填入常规岗位：成功 ${report.successCount} 人，跳过 ${report.skippedCount} 人。`;
       report.type = report.successCount ? "good" : "warn";
       state.previousDayFillReport = report;
+      saveCurrentSlotAssignments();
       render();
     }
 
@@ -1441,6 +1517,7 @@
       if (!slot || !personId) return;
       slot.peopleIds.push(personId);
       state.selectedPersonId = "";
+      saveCurrentSlotAssignments();
       render();
     }
 
@@ -1454,6 +1531,7 @@
         return seen === index;
       });
       if (found >= 0) slot.peopleIds.splice(found, 1);
+      saveCurrentSlotAssignments();
       render();
     }
 
@@ -1475,6 +1553,7 @@
       for (const slot of state.slots) {
         slot.peopleIds = slot.peopleIds.filter(idValue => idValue !== personId);
       }
+      saveCurrentSlotAssignments();
       render();
     }
 
@@ -1494,6 +1573,7 @@
         }
       }
       state.lastRemovedPerson = null;
+      saveCurrentSlotAssignments();
       render();
     }
 
@@ -1784,12 +1864,14 @@
       state.previousDayFillReport = null;
       for (const slot of state.slots) slot.peopleIds = [];
       autoAssign();
+      saveCurrentSlotAssignments();
       render();
     }
 
     function parseWorkbook(file) {
       const reader = new FileReader();
       state.previousDayFillReport = null;
+      localStorage.removeItem(keys.slotAssignmentsByDate);
       updateImportDiagnosis({
         status: "parsing",
         fileName: file.name,
@@ -1844,6 +1926,7 @@
     });
 
     els.dateSelect.addEventListener("change", () => {
+      saveCurrentSlotAssignments();
       localStorage.setItem(keys.selectedDateColumn, els.dateSelect.value || "");
       rebuildPeopleFromDate();
     });
@@ -1879,6 +1962,7 @@
       state.dateColumns = [];
       state.specialDuty = {};
       state.selectedDateLabel = "";
+      state.activeDateColumn = "";
       state.selectedPersonId = "";
       state.hiddenPeopleKeys = [];
       state.lastRemovedPerson = null;
@@ -1889,6 +1973,7 @@
       localStorage.removeItem(keys.scheduleFileName);
       localStorage.removeItem(keys.selectedDateColumn);
       localStorage.removeItem(keys.scheduleMatrixVersion);
+      localStorage.removeItem(keys.slotAssignmentsByDate);
       updateFileStatus();
       render();
     });
