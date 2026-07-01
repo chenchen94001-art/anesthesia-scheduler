@@ -1340,6 +1340,13 @@
       return state.people.find(person => norm(person.name) === target) || null;
     }
 
+    function addPersonToSlot(slot, personId) {
+      if (!slot || !personId) return false;
+      if (slot.peopleIds.includes(personId)) return false;
+      slot.peopleIds.push(personId);
+      return true;
+    }
+
     function restoreSavedSlotAssignmentsForDate(colIndex = state.activeDateColumn) {
       const savedSlots = savedAssignmentsForDate(colIndex);
       if (!savedSlots.length) return;
@@ -1354,7 +1361,7 @@
         const names = savedByTitle.get(norm(slot.title))?.shift() || [];
         for (const name of names) {
           const person = personByName(name);
-          if (person && !slot.peopleIds.includes(person.id)) slot.peopleIds.push(person.id);
+          if (person) addPersonToSlot(slot, person.id);
         }
       }
     }
@@ -1468,8 +1475,8 @@
             addUniqueName(report.mountainBlocked, person.name);
             continue;
           }
-          if (usedPeople.has(person.id) || slot.peopleIds.includes(person.id)) continue;
-          slot.peopleIds.push(person.id);
+          if (usedPeople.has(person.id)) continue;
+          if (!addPersonToSlot(slot, person.id)) continue;
           usedPeople.add(person.id);
           report.successCount += 1;
           filledThisSlot = true;
@@ -1483,6 +1490,7 @@
       report.type = report.successCount ? "good" : "warn";
       report.source = usedSavedAssignments ? "已读取前一天保存的网页排班。" : "未读到前一天保存的网页排班，已改用 Excel 前一天班次参考。";
       state.previousDayFillReport = report;
+      removeMissingAssignments();
       saveCurrentSlotAssignments();
       render();
     }
@@ -1526,8 +1534,9 @@
     function assignToSlot(slotId, personId = state.selectedPersonId) {
       const slot = state.slots.find(item => item.id === slotId);
       if (!slot || !personId) return;
-      slot.peopleIds.push(personId);
+      addPersonToSlot(slot, personId);
       state.selectedPersonId = "";
+      removeMissingAssignments();
       saveCurrentSlotAssignments();
       render();
     }
