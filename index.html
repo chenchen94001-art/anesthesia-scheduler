@@ -1949,9 +1949,9 @@
     }
 
     function outputLine(title, names) {
-      if (!names.length) return "";
       const joiner = title.includes("青龙山") || title.includes("胃镜") ? " " : "，";
-      return `${title}：${names.join(joiner)}`;
+      const text = names.length ? names.join(joiner) : "";
+      return `${title}：${text}`;
     }
 
     function formatName(person, title) {
@@ -1996,8 +1996,7 @@
           .filter(Boolean)
           .map(person => formatName(person, slot.title));
 
-        const line = outputLine(slot.title, names);
-        if (line) lines.push(line);
+        lines.push(outputLine(slot.title, names));
       }
 
       const combinedDutyLine = getCombinedDutyLine();
