@@ -1302,6 +1302,10 @@
       return `${fileName}::${colIndex}`;
     }
 
+    function dateAssignmentFallbackKey(colIndex = state.activeDateColumn) {
+      return `column::${colIndex}`;
+    }
+
     function readSlotAssignmentsByDate() {
       try {
         return JSON.parse(localStorage.getItem(keys.slotAssignmentsByDate) || "{}");
@@ -1317,15 +1321,18 @@
     function saveCurrentSlotAssignments(colIndex = state.activeDateColumn) {
       if (!colIndex) return;
       const assignments = readSlotAssignmentsByDate();
-      assignments[dateAssignmentKey(colIndex)] = state.slots.map(slot => ({
+      const snapshot = state.slots.map(slot => ({
         title: slot.title,
         names: slot.peopleIds.map(personById).filter(Boolean).map(person => person.name)
       }));
+      assignments[dateAssignmentKey(colIndex)] = snapshot;
+      assignments[dateAssignmentFallbackKey(colIndex)] = snapshot;
       writeSlotAssignmentsByDate(assignments);
     }
 
     function savedAssignmentsForDate(colIndex) {
-      return readSlotAssignmentsByDate()[dateAssignmentKey(colIndex)] || [];
+      const assignments = readSlotAssignmentsByDate();
+      return assignments[dateAssignmentKey(colIndex)] || assignments[dateAssignmentFallbackKey(colIndex)] || [];
     }
 
     function personByName(name) {
@@ -1405,11 +1412,13 @@
         nightBlocked: [],
         mountainBlocked: [],
         missingPeople: [],
-        emptySlots: []
+        emptySlots: [],
+        source: ""
       };
     }
 
     function fillRegularSlotsFromPreviousDay() {
+      saveCurrentSlotAssignments();
       const report = createPreviousDayReport();
       const previousLookup = findPreviousDateColumn();
       if (previousLookup.error) {
@@ -1419,6 +1428,7 @@
       }
 
       const slots = regularSlots();
+      const usedSavedAssignments = savedAssignmentsForDate(previousLookup.previousDate.colIndex).length > 0;
       const previousPeopleBySlot = getPreviousDayRegularPeopleBySlot(previousLookup.previousDate);
       if (!slots.length || !previousPeopleBySlot.size) {
         state.previousDayFillReport = createPreviousDayReport("warn", "前一天排班信息不足，无法自动填入常规岗位。");
@@ -1471,6 +1481,7 @@
       report.skippedCount = report.nightBlocked.length + report.mountainBlocked.length + report.missingPeople.length;
       report.message = `已参考前一天填入常规岗位：成功 ${report.successCount} 人，跳过 ${report.skippedCount} 人。`;
       report.type = report.successCount ? "good" : "warn";
+      report.source = usedSavedAssignments ? "已读取前一天保存的网页排班。" : "未读到前一天保存的网页排班，已改用 Excel 前一天班次参考。";
       state.previousDayFillReport = report;
       saveCurrentSlotAssignments();
       render();
@@ -1671,6 +1682,7 @@
         return;
       }
       const lines = [report.message];
+      if (report.source) lines.push(report.source);
       if (report.nightBlocked?.length) lines.push(`因今天夜班/夜休未填入：${report.nightBlocked.join("、")}。`);
       if (report.mountainBlocked?.length) lines.push(`因今天备山只能进入青龙山，未填入其他岗位：${report.mountainBlocked.join("、")}。`);
       if (report.missingPeople?.length) lines.push(`今天不在人员池中，未填入：${report.missingPeople.join("、")}。`);
@@ -1867,6 +1879,7 @@
     }
 
     function goStep(step) {
+      saveCurrentSlotAssignments();
       currentStep = Math.max(0, Math.min(2, step));
       renderStep();
     }
