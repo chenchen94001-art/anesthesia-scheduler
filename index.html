@@ -486,6 +486,42 @@
       gap: 6px;
     }
 
+    .slot-search {
+      display: grid;
+      gap: 5px;
+    }
+
+    .slot-search-input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px 8px;
+      background: #fff;
+      font-size: 12px;
+    }
+
+    .slot-search-results {
+      display: grid;
+      gap: 5px;
+    }
+
+    .slot-search-result {
+      width: 100%;
+      border: 1px solid #dbe4f0;
+      background: #fff;
+      border-radius: 6px;
+      padding: 6px 8px;
+      text-align: left;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .slot-search-empty {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 4px 2px;
+    }
+
     .status {
       border: 1px solid;
       border-radius: 7px;
@@ -1292,6 +1328,10 @@
       return norm(person?.shift).replace(/\s/g, "").includes("备山");
     }
 
+    function isRecoveryShift(person) {
+      return norm(person?.shift).replace(/\s/g, "").includes("恢");
+    }
+
     function selectedDateColumn() {
       const selectedCol = Number(els.dateSelect.value || state.dateColumns[0]?.colIndex || 0);
       return state.dateColumns.find(item => item.colIndex === selectedCol) || null;
@@ -1437,8 +1477,8 @@
       const slots = regularSlots();
       const usedSavedAssignments = savedAssignmentsForDate(previousLookup.previousDate.colIndex).length > 0;
       const previousPeopleBySlot = getPreviousDayRegularPeopleBySlot(previousLookup.previousDate);
-      if (!slots.length || !previousPeopleBySlot.size) {
-        state.previousDayFillReport = createPreviousDayReport("warn", "前一天排班信息不足，无法自动填入常规岗位。");
+      if (!slots.length) {
+        state.previousDayFillReport = createPreviousDayReport("warn", "没有可填入的常规岗位。");
         render();
         return;
       }
@@ -1455,8 +1495,39 @@
         }
       }
 
+      let skippedSpecialSlots = false;
+      let recoveryAutoFilled = false;
+
       for (const slot of slots) {
         const slotTitle = norm(slot.title);
+
+        if (slotTitle === "胃镜室" || slotTitle === "青龙山") {
+          skippedSpecialSlots = true;
+          continue;
+        }
+
+        if (slotTitle === "恢复室") {
+          let filledThisSlot = false;
+
+          for (const person of state.people) {
+            if (!isRecoveryShift(person)) continue;
+            if (isNightBlockedForRegular(person)) {
+              addUniqueName(report.nightBlocked, person.name);
+              continue;
+            }
+            if (usedPeople.has(person.id)) continue;
+            if (!addPersonToSlot(slot, person.id)) continue;
+
+            usedPeople.add(person.id);
+            report.successCount += 1;
+            filledThisSlot = true;
+            recoveryAutoFilled = true;
+          }
+
+          if (!filledThisSlot) addUniqueName(report.emptySlots, slotTitle);
+          continue;
+        }
+
         const candidateNames = previousPeopleBySlot.get(slotTitle) || [];
         let filledThisSlot = false;
         if (!candidateNames.length) addUniqueName(report.emptySlots, slotTitle);
@@ -1488,7 +1559,11 @@
       report.skippedCount = report.nightBlocked.length + report.mountainBlocked.length + report.missingPeople.length;
       report.message = `已参考前一天填入常规岗位：成功 ${report.successCount} 人，跳过 ${report.skippedCount} 人。`;
       report.type = report.successCount ? "good" : "warn";
-      report.source = usedSavedAssignments ? "已读取前一天保存的网页排班。" : "未读到前一天保存的网页排班，已改用 Excel 前一天班次参考。";
+      const sourceParts = [];
+      sourceParts.push(usedSavedAssignments ? "已读取前一天保存的网页排班。" : "未读到前一天保存的网页排班，已改用 Excel 前一天班次参考。");
+      if (skippedSpecialSlots) sourceParts.push("胃镜室、青龙山未参考前一天。");
+      if (recoveryAutoFilled) sourceParts.push("恢复室已按今天班次“恢”自动填入。");
+      report.source = sourceParts.join(" ");
       state.previousDayFillReport = report;
       removeMissingAssignments();
       saveCurrentSlotAssignments();
@@ -1740,6 +1815,19 @@
         </div>
         <div class="slot-body">
           <div class="assigned-list"></div>
+
+          <div class="slot-search">
+            <input
+              class="slot-search-input"
+              type="search"
+              inputmode="search"
+              autocomplete="off"
+              placeholder="搜索姓名/班次"
+              data-search="${slot.id}"
+            />
+            <div class="slot-search-results" data-search-results="${slot.id}"></div>
+          </div>
+
           <div class="slot-actions">
             <select data-select="${slot.id}"><option value="">从人员池选择</option>${selectedOptions}</select>
             <button type="button" data-pick="${slot.id}">选入</button>
@@ -1756,6 +1844,50 @@
         pill.querySelector("button").addEventListener("click", () => removeAssignment(slot.id, personId, index));
         list.appendChild(pill);
       });
+
+      const searchInput = slotEl.querySelector(`[data-search="${slot.id}"]`);
+      const searchResults = slotEl.querySelector(`[data-search-results="${slot.id}"]`);
+
+      function renderSearchResults() {
+        const keyword = norm(searchInput.value).replace(/\s/g, "");
+        searchResults.innerHTML = "";
+
+        if (!keyword) return;
+
+        const matchedPeople = state.people
+          .filter(person => {
+            const name = norm(person.name).replace(/\s/g, "");
+            const shift = norm(person.shift).replace(/\s/g, "");
+            return name.includes(keyword) || shift.includes(keyword);
+          })
+          .slice(0, 8);
+
+        if (!matchedPeople.length) {
+          searchResults.innerHTML = `<div class="slot-search-empty">没有匹配人员</div>`;
+          return;
+        }
+
+        for (const person of matchedPeople) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "slot-search-result";
+
+          const shift = norm(person.shift);
+          const assignedText = counts.has(person.id) ? " 已排" : "";
+          button.textContent = `${person.name}${shift ? `（${shift}）` : ""}${assignedText}`;
+
+          button.addEventListener("click", () => {
+            assignToSlot(slot.id, person.id);
+            searchInput.value = "";
+            searchResults.innerHTML = "";
+          });
+
+          searchResults.appendChild(button);
+        }
+      }
+
+      searchInput.addEventListener("input", renderSearchResults);
+
       slotEl.querySelector(`[data-pick="${slot.id}"]`).addEventListener("click", () => {
         const select = slotEl.querySelector(`[data-select="${slot.id}"]`);
         assignToSlot(slot.id, select.value);
