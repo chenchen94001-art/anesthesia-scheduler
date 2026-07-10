@@ -1465,26 +1465,11 @@
     function getPreviousDayRegularPeopleBySlot(previousCol) {
       const peopleBySlot = new Map();
       const savedSlots = savedAssignmentsForDate(previousCol.colIndex);
-      if (savedSlots.length) {
-        for (const savedSlot of savedSlots) {
-          const title = norm(savedSlot.title);
-          if (!title || isFixedTemplateSlotTitle(title)) continue;
-          if (!peopleBySlot.has(title)) peopleBySlot.set(title, []);
-          for (const name of savedSlot.names || []) peopleBySlot.get(title).push(name);
-        }
-        return peopleBySlot;
-      }
-
-      const titles = new Set(regularSlots().map(slot => norm(slot.title)));
-      const selectedDate = selectedDateColumn();
-      const startRow = (selectedDate?.dateRowIndex ?? previousCol.dateRowIndex) + 2;
-      for (let r = startRow; r < state.matrixRows.length; r += 1) {
-        const row = state.matrixRows[r] || [];
-        const name = norm(row[0]);
-        const previousShift = norm(row[previousCol.colIndex]);
-        if (!name || !previousShift || !titles.has(previousShift)) continue;
-        if (!peopleBySlot.has(previousShift)) peopleBySlot.set(previousShift, []);
-        peopleBySlot.get(previousShift).push(name);
+      for (const savedSlot of savedSlots) {
+        const title = norm(savedSlot.title);
+        if (!title || isFixedTemplateSlotTitle(title)) continue;
+        if (!peopleBySlot.has(title)) peopleBySlot.set(title, []);
+        for (const name of savedSlot.names || []) peopleBySlot.get(title).push(name);
       }
       return peopleBySlot;
     }
@@ -1518,7 +1503,12 @@
       }
 
       const slots = regularSlots();
-      const usedSavedAssignments = savedAssignmentsForDate(previousLookup.previousDate.colIndex).length > 0;
+      const savedPreviousAssignments = savedAssignmentsForDate(previousLookup.previousDate.colIndex);
+      if (!savedPreviousAssignments.length) {
+        state.previousDayFillReport = createPreviousDayReport("warn", "没有可参考的前一天排班。请先在前一天日期里完成并保存网页排班。");
+        render();
+        return;
+      }
       const previousPeopleBySlot = getPreviousDayRegularPeopleBySlot(previousLookup.previousDate);
       if (!slots.length) {
         state.previousDayFillReport = createPreviousDayReport("warn", "没有可填入的常规岗位。");
@@ -1603,7 +1593,7 @@
       report.message = `已参考前一天填入常规岗位：成功 ${report.successCount} 人，跳过 ${report.skippedCount} 人。`;
       report.type = report.successCount ? "good" : "warn";
       const sourceParts = [];
-      sourceParts.push(usedSavedAssignments ? "已读取前一天保存的网页排班。" : "未读到前一天保存的网页排班，已改用 Excel 前一天班次参考。");
+      sourceParts.push("已读取前一天保存的网页排班。");
       if (skippedSpecialSlots) sourceParts.push("胃镜室、青龙山未参考前一天。");
       if (recoveryAutoFilled) sourceParts.push("恢复室已按今天班次“恢”自动填入。");
       report.source = sourceParts.join(" ");
@@ -1662,13 +1652,8 @@
     function removeAssignment(slotId, personId, index) {
       const slot = state.slots.find(item => item.id === slotId);
       if (!slot) return;
-      let seen = -1;
-      const found = slot.peopleIds.findIndex(idValue => {
-        if (idValue !== personId) return false;
-        seen += 1;
-        return seen === index;
-      });
-      if (found >= 0) slot.peopleIds.splice(found, 1);
+      const indexToRemove = slot.peopleIds[index] === personId ? index : slot.peopleIds.indexOf(personId);
+      if (indexToRemove >= 0) slot.peopleIds.splice(indexToRemove, 1);
       saveCurrentSlotAssignments();
       render();
     }
