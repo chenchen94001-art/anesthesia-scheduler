@@ -1721,7 +1721,7 @@
         if (ignoreSpecial && ["夜班", "备班", "备办", "备山", "二备", "二线班", "总值班/二线班"].includes(slot.title)) continue;
         for (const personId of slot.peopleIds) counts.set(personId, (counts.get(personId) || 0) + 1);
       }
-      return counts;
+      return includeNotesPeopleInCounts(counts);
     }
 
     function getSelectedCounts() {
@@ -1729,6 +1729,19 @@
       for (const slot of state.slots) {
         if (IGNORED_SELECTED_SLOT_TITLES.has(norm(slot.title))) continue;
         for (const personId of slot.peopleIds) counts.set(personId, (counts.get(personId) || 0) + 1);
+      }
+      return includeNotesPeopleInCounts(counts);
+    }
+
+    function includeNotesPeopleInCounts(counts) {
+      const notes = norm(els.notesText?.value);
+      if (!notes) return counts;
+
+      for (const person of state.people) {
+        const name = norm(person.name);
+        if (name && notes.includes(name) && !counts.has(person.id)) {
+          counts.set(person.id, 1);
+        }
       }
       return counts;
     }
@@ -2184,7 +2197,7 @@
     els.templateText.addEventListener("input", () => localStorage.setItem(keys.templateText, els.templateText.value));
     els.notesText.addEventListener("input", () => {
       localStorage.setItem(keys.notesText, els.notesText.value);
-      generateOutput();
+      render();
     });
     els.clearAssignments.addEventListener("click", clearSlotAssignments);
     els.clearAll.addEventListener("click", () => {
